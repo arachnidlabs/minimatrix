@@ -8,7 +8,7 @@
 MCU = attiny4313
 FORMAT = ihex
 TARGET = main
-SRC = $(TARGET).c
+SRC = $(TARGET).c glcdfont.c
 ASRC = 
 OPT = s
 
@@ -104,7 +104,7 @@ AVRDUDE_WRITE_FUSES = -U hfuse:w:hfuse.hex:i -U lfuse:w:lfuse.hex:i -u
 # to submit bug reports.
 #AVRDUDE_VERBOSE = -v -v
 
-AVRDUDE_BASIC = -p $(MCU) -c $(AVRDUDE_PROGRAMMER) -P $(AVRDUDE_PORT) -B 8
+AVRDUDE_BASIC = -p $(MCU) -c $(AVRDUDE_PROGRAMMER) -P $(AVRDUDE_PORT)
 AVRDUDE_FLAGS = $(AVRDUDE_BASIC) $(AVRDUDE_NO_VERIFY) $(AVRDUDE_VERBOSE) $(AVRDUDE_ERASE_COUNTER)
 
 

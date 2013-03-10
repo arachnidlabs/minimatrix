@@ -217,3 +217,7 @@ pip-log.txt
 *.?#?
 *.gpi
 *.scr
+*.hex
+*.o
+*.eep
+*.elf

@@ -7,6 +7,8 @@
 #include <avr/sleep.h>
 #include <util/delay.h>
 
+#include "glcdfont.h"
+
 FUSES = {
 	.low = FUSE_SUT0 & FUSE_CKSEL3 & FUSE_CKSEL1 & FUSE_CKSEL0,
 	.high = FUSE_SPIEN,
@@ -56,7 +58,9 @@ void ioinit(void) {
 	sei();
 }
 
-void sense_columns() {
+char sense_columns() {
+	char ret;
+
 	PWM_OFF();
 
 	// Make the columns output low
@@ -74,23 +78,39 @@ void sense_columns() {
 	_delay_ms(6);
 	
 	// Now read the columns
-	int i;
-	for(i = 7; i >= 1; i--)
-		display[i] = display[i-1];
-	display[0] = ~PINB;
+	ret = PINB;
 
 	// Make the columns outputs again
 	DDRB = 0xff;
 
 	PWM_ON();
+	
+	return ret;
 }
 
 int main(void) {
 	ioinit();
 	
 	for(;;) {
-		sense_columns();
-		_delay_ms(1000);
+		/*int i;
+		for(i = 7; i >= 1; i--)
+			display[i] = display[i-1];
+		display[0] += 1;
+		display[0] = sense_columns();
+		_delay_ms(1000);*/
+		int i, j, k;
+		for(i = 0; i < 256; i++) {
+			for(j = 0; j < 7; j++) {
+				for(k = 7; k > 0; k--)
+					display[k] = display[k - 1];
+				if(j >= 5) {
+					display[0] = 0;
+				} else { 
+					display[0] = pgm_read_byte(font+(i*5)+j);
+				}
+				_delay_ms(150);
+			}		
+		}
 	}
 }
 
