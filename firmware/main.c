@@ -12,6 +12,9 @@ FUSES = {
 	.high = FUSE_SPIEN,
 };
 
+#define PWM_ON() (TCCR1B |= _BV(CS11))
+#define PWM_OFF() (TCCR1B &= ~_BV(CS11))
+
 char display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 int row = 0;
 
@@ -22,9 +25,11 @@ const char row_pins[] = {
 	_BV(PD3),
 	_BV(PD2),
 	_BV(PD1),
-	_BV(PD0),
+	_BV(PA1),
 	_BV(PA0)
 };
+
+#define ENABLE_ROW(row) if(row < 6) PORTD &= ~row_pins[row]; else PORTA &= ~row_pins[row]
 
 ISR(TIMER1_COMPA_vect) {
 	// Turn off the old row
@@ -36,11 +41,7 @@ ISR(TIMER1_COMPA_vect) {
 	PORTB = display[row];
 	
 	// Turn on the new row
-	if(row < 7) {
-		PORTD &= ~row_pins[row];
-	} else {
-		PORTA &= ~row_pins[row];
-	}
+	ENABLE_ROW(row);
 }
 
 void ioinit(void) {
@@ -55,20 +56,41 @@ void ioinit(void) {
 	sei();
 }
 
+void sense_columns() {
+	PWM_OFF();
+
+	// Make the columns output low
+	PORTB = 0;
+
+	// Bring all the rows high
+	PORTD = 0xff;
+	PORTA = 0xff;
+	
+	_delay_us(100);
+
+	// Now make the columns inputs
+	DDRB = 0;
+		
+	_delay_ms(6);
+	
+	// Now read the columns
+	int i;
+	for(i = 7; i >= 1; i--)
+		display[i] = display[i-1];
+	display[0] = ~PINB;
+
+	// Make the columns outputs again
+	DDRB = 0xff;
+
+	PWM_ON();
+}
+
 int main(void) {
 	ioinit();
 	
-	int v = 1;
 	for(;;) {
-		for(int r = 0; r < 8; r++) {
-			display[r] ^= 0xff;
-			_delay_ms(250);
-			/*for(int c = 0; c < 8; c++) {
-				display[r] <<= 1;
-				_delay_ms(250);
-			}*/
-		}
-		//v = (v << 2) | 1;
+		sense_columns();
+		_delay_ms(1000);
 	}
 }
 
