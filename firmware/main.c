@@ -45,7 +45,7 @@ typedef struct {
 typedef void (*mode_func)(void);
 
 config_t stored_config EEMEM = { .delay = 15, .spacing = 1 };
-char message[MAX_MESSAGE_LENGTH] EEMEM = "www.arachnidlabs.com ";
+char message[MAX_MESSAGE_LENGTH] EEMEM = "www.arachnidlabs.com/minimatrix/ ";
 
 config_t config;
 uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -74,10 +74,10 @@ const char row_pins[] = {
 
 #define COMMAND_NONE 	0xFFFF
 #define COMMAND_STANDBY 0x000C
-#define COMMAND_UP		0x0021
-#define COMMAND_DOWN	0x0020
-#define COMMAND_LEFT	0x0010
-#define COMMAND_RIGHT	0x0011
+#define COMMAND_UP		0x0020
+#define COMMAND_DOWN	0x0021
+#define COMMAND_LEFT	0x0011
+#define COMMAND_RIGHT	0x0010
 #define COMMAND_MENU	0x000B
 
 int8_t previous_toggle = -1;
@@ -159,7 +159,7 @@ void ioinit(void) {
 	sei();
 }
 
-uint8_t read_font_column(char character, uint8_t column) {
+uint8_t read_font_column(uint8_t character, uint8_t column) {
 	return pgm_read_byte(font + (character * 5) + column);
 }
 
@@ -169,7 +169,7 @@ void edit(void);
 void marquee(void) {
 	char *msgptr = message;
 	while(mode == marquee) {
-		char current = eeprom_read_byte((uint8_t*)msgptr++);
+		uint8_t current = eeprom_read_byte((uint8_t*)msgptr++);
 		if(current == '\0') { 
 			msgptr = message;
 			continue;
@@ -260,7 +260,7 @@ void edit() {
 			break;
 		case COMMAND_DOWN:
 			current--;
-			show_current();
+			show_current();	
 			break;
 		case COMMAND_MENU:
 			if(!message_is_repeat()) {
