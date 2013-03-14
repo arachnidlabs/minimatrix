@@ -207,30 +207,26 @@ void marquee(void) {
 }
 
 void edit() {
-	uint8_t repeats = 0;
-	int idx = 0;
+	uint8_t repeats = 0, idx = 0;
 	char current;
+	
 
 	void write_dirty(void) {
 		eeprom_update_byte((uint8_t*)&message[idx], current);
 	}
 	
-	void show_current(void) {
-		int i;
-		for(i = 0; i < 5; i++)
-			display[5 - i] = read_font_column(current, i);
-	}
-	
 	void read_current(void) {
 		current = eeprom_read_byte((uint8_t*)&message[idx]);
-		show_current();
 	}
 	
 	display[0] = 0;
 	display[6] = 0;
 	display[7] = 0;
 	
+	// Load and show the first character
 	read_current();
+	for(int i = 0; i < 5; i++)
+		display[5 - i] = read_font_column(current, i);
 
 	while(mode == edit) {
 		uint16_t cmd = get_message();
@@ -245,6 +241,16 @@ void edit() {
 				write_dirty();
 				idx--;
 				read_current();
+				for(int i = 0; i < 8; i++) {
+					for(int j = 0; j < 7; j++)
+						display[j] = display[j + 1];
+					if(i < 5) {
+						display[7] = read_font_column(current, i);
+					} else {
+						display[7] = 0;
+					}
+					_delay_ms(100);
+				}
 			}
 			break;
 		case COMMAND_RIGHT:
@@ -252,6 +258,16 @@ void edit() {
 				write_dirty();
 				idx++;
 				read_current();
+				for(int i = 0; i < 8; i++) {
+					for(int j = 7; j > 0; j++)
+						display[j] = display[j - 1];
+					if(i < 5) {
+						display[0] = read_font_column(current, 4 - i);
+					} else {
+						display[0] = 0;
+					}
+					_delay_ms(100);
+				}				
 			}
 			break;
 		case COMMAND_UP:
