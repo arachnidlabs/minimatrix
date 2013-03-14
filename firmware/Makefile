@@ -85,7 +85,7 @@ LDFLAGS = $(EXTMEMOPTS) $(LDMAP) $(PRINTF_LIB) $(SCANF_LIB) $(MATH_LIB)
 AVRDUDE_PROGRAMMER = avrispv2
 AVRDUDE_PORT = /dev/ttyACM0
 
-AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
+AVRDUDE_WRITE_FLASH = -B 1 -U flash:w:$(TARGET).hex
 AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(TARGET).eep
 AVRDUDE_WRITE_FUSES = -U hfuse:w:hfuse.hex:i -U lfuse:w:lfuse.hex:i -u
 
@@ -143,7 +143,7 @@ sym: $(TARGET).sym
 
 # Program the device.  
 program: $(TARGET).hex
-	$(AVRDUDE) $(AVRDUDE_FLAGS) $(AVRDUDE_WRITE_FLASH)
+	$(AVRDUDE) $(AVRDUDE_FLAGS) $(AVRDUDE_WRITE_FLASH) $(AVRDUDE_WRITE_EEPROM)
 
 
 # Rewrite the EEPROM
