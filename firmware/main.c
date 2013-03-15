@@ -20,7 +20,7 @@ FUSES = {
 #define PWM_ON() (TCCR1B |= _BV(CS11))
 #define PWM_OFF() (TCCR1B &= ~_BV(CS11))
 
-#define MAX_MESSAGE_LENGTH 248
+#define MAX_DATA_LENGTH 248
 
 #define IR_MESSAGE_LENGTH 14
 
@@ -37,15 +37,40 @@ typedef union {
 	} message;
 } ir_message_t;
 
+#define IS_MARQUEE 0
+#define IS_ANIMATION 1
+
 typedef struct {
-	uint8_t delay;
-	uint8_t spacing;
+	uint8_t flags;
+	union {
+		struct {
+			uint8_t delay;
+			uint8_t spacing;
+		} marquee;
+		struct {
+			uint8_t delay;
+			uint8_t framecount;
+		} animate;
+	};
 } config_t;
+
+typedef struct {
+	config_t config;
+	char data[MAX_DATA_LENGTH];
+} eedata_t;
 
 typedef void (*mode_func)(void);
 
-config_t stored_config EEMEM = { .delay = 15, .spacing = 1 };
-char message[MAX_MESSAGE_LENGTH] EEMEM = "www.arachnidlabs.com/minimatrix/ ";
+eedata_t stored_config EEMEM = {
+	.config = {
+		.flags = IS_MARQUEE,
+		.marquee = {
+			.delay = 15,
+			.spacing = 1
+		}
+	},
+	.data = "www.arachnidlabs.com/minimatrix/ "
+};
 
 config_t config;
 uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -163,22 +188,34 @@ uint8_t read_font_column(uint8_t character, uint8_t column) {
 	return pgm_read_byte(font + (character * 5) + column);
 }
 
+void animate(void);
 void marquee(void);
 void edit(void);
 
+void animate(void) {
+	while(mode == animate) {
+		uint8_t *dataptr = config.data;
+		for(int i = 0; i < config.animate.framecount; i++) {
+			for(int j = 0; j < 8; j++) {
+				display[j] = eeprom_read_byte(*dataptr++);
+			}
+			_delay_ms(config.animate.delay);
+		}
+	}
+}
+
 void marquee(void) {
-	char *msgptr = message;
+	char *msgptr = config.data;
 	while(mode == marquee) {
 		uint8_t current = eeprom_read_byte((uint8_t*)msgptr++);
 		if(current == '\0') { 
-			msgptr = message;
+			msgptr = config.data;
 			continue;
 		}
 
-		int j, k;
-		for(j = 0; j < 5 + config.spacing; j++) {
+		for(int j = 0; j < 5 + config.marquee.spacing; j++) {
 			// Shift everything else left
-			for(k = 7; k > 0; k--)
+			for(int k = 7; k > 0; k--)
 				display[k] = display[k - 1];
 			
 			if(j >= 5) {
@@ -189,7 +226,7 @@ void marquee(void) {
 				display[0] = read_font_column(current, j);
 			}
 
-			for(k = 0; k < config.delay && mode == marquee; k++) {
+			for(int k = 0; k < config.marquee.delay && mode == marquee; k++) {
 				_delay_ms(10);
 				uint16_t cmd = get_message();
 				if(cmd == COMMAND_NONE) continue;
@@ -212,11 +249,11 @@ void edit() {
 	
 
 	void write_dirty(void) {
-		eeprom_update_byte((uint8_t*)&message[idx], current);
+		eeprom_update_byte((uint8_t*)&config.data[idx], current);
 	}
 	
 	void read_current(void) {
-		current = eeprom_read_byte((uint8_t*)&message[idx]);
+		current = eeprom_read_byte((uint8_t*)&config.data[idx]);
 	}
 	
 	display[0] = 0;
@@ -297,9 +334,13 @@ void edit() {
 }
 
 int main(void) {
-	eeprom_read_block(&config, &stored_config, sizeof(config_t));
+	eeprom_read_block(&config, &stored_config.config, sizeof(config_t));
 	
-	mode = marquee;
+	if(config.flags & IS_ANIMATION) {
+		mode = animate;
+	} else {
+		mode = marquee;
+	}
 	
 	ioinit();
 
