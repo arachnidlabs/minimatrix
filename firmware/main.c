@@ -51,12 +51,12 @@ typedef struct {
 			uint8_t delay;
 			uint8_t framecount;
 		} animate;
-	};
+	} mode;
 } config_t;
 
 typedef struct {
 	config_t config;
-	char data[MAX_DATA_LENGTH];
+	uint8_t data[MAX_DATA_LENGTH];
 } eedata_t;
 
 typedef void (*mode_func)(void);
@@ -64,22 +64,25 @@ typedef void (*mode_func)(void);
 eedata_t stored_config EEMEM = {
 	.config = {
 		.flags = IS_MARQUEE,
-		.marquee = {
-			.delay = 15,
-			.spacing = 1
+		.mode = {
+			.marquee = {
+				.delay = 10,
+				.spacing = 1
+			}
 		}
 	},
 	.data = "www.arachnidlabs.com/minimatrix/ "
 };
 
-config_t config;
-uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-uint8_t row = 0;
-uint8_t last_ir_level = 1;
-uint8_t ir_counter = 0;
-uint8_t ir_bit_counter = 0;
-ir_message_t current_message;
-mode_func mode;
+static config_t config;
+static uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+static uint8_t row = 0;
+static uint8_t last_ir_level = 1;
+static uint8_t ir_counter = 0;
+static uint8_t ir_bit_counter = 0;
+static ir_message_t current_message;
+static mode_func mode;
+static int8_t previous_toggle = -1;
  
 const char row_pins[] = {
 	_BV(PD6),
@@ -105,24 +108,22 @@ const char row_pins[] = {
 #define COMMAND_RIGHT	0x0010
 #define COMMAND_MENU	0x000B
 
-int8_t previous_toggle = -1;
-
-uint16_t get_message() {
+static uint16_t get_message(void) {
 	if(ir_bit_counter < IR_MESSAGE_LENGTH)
 		return COMMAND_NONE;
 	return current_message.message.command;
 }
 
-uint8_t message_is_repeat() {
+static uint8_t message_is_repeat(void) {
 	return previous_toggle == current_message.message.toggle;
 }
 
-void ir_clear_buffer(void) {
+static void ir_clear_buffer(void) {
 	previous_toggle = current_message.message.toggle;
 	ir_bit_counter = 0;
 }
 
-void ir_receive(void) {
+static void ir_receive(void) {
 	if(ir_bit_counter == IR_MESSAGE_LENGTH)
 		return;
 
@@ -165,7 +166,7 @@ ISR(TIMER1_COMPA_vect) {
 	ENABLE_ROW(row);
 }
 
-void ioinit(void) {
+static void ioinit(void) {
 	OCR1A = 125; // 8 megahertz / 8 / 125 = 8KHz
 	TIMSK |= _BV(OCIE1A); // Interrupt on counter reset
 	TCCR1B = _BV(WGM12); // CTC(OCR1A), /8 prescaler
@@ -184,7 +185,7 @@ void ioinit(void) {
 	sei();
 }
 
-uint8_t read_font_column(uint8_t character, uint8_t column) {
+static uint8_t read_font_column(uint8_t character, uint8_t column) {
 	return pgm_read_byte(font + (character * 5) + column);
 }
 
@@ -194,26 +195,27 @@ void edit(void);
 
 void animate(void) {
 	while(mode == animate) {
-		uint8_t *dataptr = config.data;
-		for(int i = 0; i < config.animate.framecount; i++) {
+		uint8_t *dataptr = stored_config.data;
+		for(int i = 0; i < config.mode.animate.framecount; i++) {
 			for(int j = 0; j < 8; j++) {
-				display[j] = eeprom_read_byte(*dataptr++);
+				display[j] = eeprom_read_byte(dataptr++);
 			}
-			_delay_ms(config.animate.delay);
+			for(int j = 0; j < config.mode.animate.delay; j++)
+				_delay_ms(10);
 		}
 	}
 }
 
 void marquee(void) {
-	char *msgptr = config.data;
+	uint8_t *msgptr = stored_config.data;
 	while(mode == marquee) {
-		uint8_t current = eeprom_read_byte((uint8_t*)msgptr++);
+		uint8_t current = eeprom_read_byte(msgptr++);
 		if(current == '\0') { 
-			msgptr = config.data;
+			msgptr = stored_config.data;
 			continue;
 		}
 
-		for(int j = 0; j < 5 + config.marquee.spacing; j++) {
+		for(int j = 0; j < 5 + config.mode.marquee.spacing; j++) {
 			// Shift everything else left
 			for(int k = 7; k > 0; k--)
 				display[k] = display[k - 1];
@@ -226,7 +228,7 @@ void marquee(void) {
 				display[0] = read_font_column(current, j);
 			}
 
-			for(int k = 0; k < config.marquee.delay && mode == marquee; k++) {
+			for(int k = 0; k < config.mode.marquee.delay && mode == marquee; k++) {
 				_delay_ms(10);
 				uint16_t cmd = get_message();
 				if(cmd == COMMAND_NONE) continue;
@@ -249,12 +251,17 @@ void edit() {
 	
 
 	void write_dirty(void) {
-		eeprom_update_byte((uint8_t*)&config.data[idx], current);
+		eeprom_update_byte((uint8_t*)&stored_config.data[idx], current);
 	}
 	
 	void read_current(void) {
-		current = eeprom_read_byte((uint8_t*)&config.data[idx]);
+		current = eeprom_read_byte((uint8_t*)&stored_config.data[idx]);
 	}
+	
+	void show_current(void) {
+		for(int i = 0; i < 5; i++)
+			display[5 - i] = read_font_column(current, i);
+	}		
 	
 	display[0] = 0;
 	display[6] = 0;
@@ -262,8 +269,7 @@ void edit() {
 	
 	// Load and show the first character
 	read_current();
-	for(int i = 0; i < 5; i++)
-		display[5 - i] = read_font_column(current, i);
+	show_current();
 
 	while(mode == edit) {
 		uint16_t cmd = get_message();
@@ -281,30 +287,31 @@ void edit() {
 				for(int i = 0; i < 8; i++) {
 					for(int j = 0; j < 7; j++)
 						display[j] = display[j + 1];
-					if(i < 5) {
-						display[7] = read_font_column(current, i);
+					if(i > 0 && i < 6) {
+						display[7] = read_font_column(current, 5 - i);
 					} else {
 						display[7] = 0;
 					}
-					_delay_ms(100);
+					_delay_ms(50);
 				}
 			}
 			break;
 		case COMMAND_RIGHT:
-			if(idx < MAX_MESSAGE_LENGTH && current != '\0') {
+			if(idx < MAX_DATA_LENGTH && current != '\0') {
 				write_dirty();
 				idx++;
 				read_current();
-				for(int i = 0; i < 8; i++) {
-					for(int j = 7; j > 0; j++)
+				for(int i = 0; i < 7; i++) {
+					for(int j = 7; j > 0; j--)
 						display[j] = display[j - 1];
-					if(i < 5) {
-						display[0] = read_font_column(current, 4 - i);
+					if(i > 1 && i < 6) {
+						display[0] = read_font_column(current, i - 2);
 					} else {
 						display[0] = 0;
 					}
-					_delay_ms(100);
-				}				
+					_delay_ms(50);
+				}
+				show_current();			
 			}
 			break;
 		case COMMAND_UP:
@@ -333,7 +340,9 @@ void edit() {
 	}
 }
 
-int main(void) {
+void main(void) __attribute__((noreturn));
+
+void main(void) {
 	eeprom_read_block(&config, &stored_config.config, sizeof(config_t));
 	
 	if(config.flags & IS_ANIMATION) {

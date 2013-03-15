@@ -37,7 +37,7 @@ def main(args):
     if len(args) == 2:
         out.tofile(sys.stdout, format='hex')
     else:
-        out.tofile(open(args[2]), format='hex')
+        out.tofile(open(args[2], 'w'), format='hex')
 
 
 if __name__ == '__main__':

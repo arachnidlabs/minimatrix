@@ -38,7 +38,7 @@ CDEBUG = -g$(DEBUG)
 CWARN = -Wall -Wstrict-prototypes
 CTUNING = -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 #CEXTRA = -Wa,-adhlns=$(<:.c=.lst)
-CFLAGS = $(CDEBUG) $(CDEFS) $(CINCS) -O$(OPT) $(CWARN) $(CSTANDARD) $(CEXTRA)
+CFLAGS = $(CDEBUG) $(CDEFS) $(CINCS) -O$(OPT) $(CWARN) $(CSTANDARD) $(CEXTRA) $(CTUNING)
 
 
 #ASFLAGS = -Wa,-adhlns=$(<:.S=.lst),-gstabs 
@@ -132,7 +132,7 @@ ALL_ASFLAGS = -mmcu=$(MCU) -I. -x assembler-with-cpp $(ASFLAGS)
 # Default target.
 all: build
 
-build: elf hex eep
+build: elf hex eep size
 
 elf: $(TARGET).elf
 hex: $(TARGET).hex
@@ -140,6 +140,8 @@ eep: $(TARGET).eep
 lss: $(TARGET).lss 
 sym: $(TARGET).sym
 
+size: $(TARGET).elf
+	avr-size $(TARGET).elf
 
 # Program the device.  
 program: $(TARGET).hex
