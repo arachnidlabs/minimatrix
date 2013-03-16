@@ -143,7 +143,7 @@ inline static void ir_receive(void) {
 			ir_bit_counter = 0;
 		}
 	} else {
-		if(ir_counter > 8) {
+		if(ir_counter > 3) {
 			// Direction of transition indicates bit value
 			// space to mark (ir_level=0) is a 1, mark to space is 0.
 			current_message.data <<= 1;
@@ -184,7 +184,7 @@ ISR(TIMER1_COMPA_vect) {
 }
 
 static void ioinit(void) {
-	OCR1A = 125; // 8 megahertz / 8 / 125 = 8KHz
+	OCR1A = 250; // 8 megahertz / 8 / 125 = 8KHz
 	TIMSK |= _BV(OCIE1A); // Interrupt on counter reset
 	TCCR1B = _BV(WGM12); // CTC(OCR1A), /8 prescaler
 
