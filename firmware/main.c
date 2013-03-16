@@ -21,7 +21,7 @@ FUSES = {
 #define PWM_OFF() (TCCR1B &= ~_BV(CS11))
 #define PORTD_ROWS _BV(PD6) | _BV(PD5) | _BV(PD4) | _BV(PD3) | _BV(PD2) | _BV(PD1)
 #define PORTA_ROWS _BV(PA1) | _BV(PA0)
-#define ENABLE_ROW(row) if(row < 6) PORTD &= ~row_pins[row]; else PORTA &= ~row_pins[row]
+#define ENABLE_ROW(row) if(row < 6) PORTD &= ~pgm_read_byte(&row_pins[row]); else PORTA &= ~pgm_read_byte(&row_pins[row])
 
 #define MAX_DATA_LENGTH 248 // bytes
 #define IR_MESSAGE_LENGTH 14 // bits
@@ -90,11 +90,10 @@ eedata_t stored_config EEMEM = {
 
 static config_t config;
 static uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-static uint8_t row = 0;
 static mode_func mode;
 static uint8_t keypresses = 0;
  
-const char row_pins[] = {
+const char row_pins[] PROGMEM = {
 	_BV(PD6),
 	_BV(PD5),
 	_BV(PD4),
@@ -167,6 +166,8 @@ inline static void ir_receive(void) {
 }
 
 ISR(TIMER1_COMPA_vect) {
+	static uint8_t row = 0;
+
 	// Turn off the old row
 	PORTD |= PORTD_ROWS;
 	PORTA |= PORTA_ROWS;
@@ -331,6 +332,7 @@ void edit() {
 			keypresses &= ~KEY_MENU;
 		} else {
 			repeats = 0;
+			continue;
 		}
 
 		if(repeats == 0)
