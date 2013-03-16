@@ -131,16 +131,23 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 inline static void ir_receive(void) {
 	static ir_message_t current_message;
 	static uint8_t ir_bit_counter = 0;
-	static uint8_t last_ir_level = 1;
-	static uint8_t ir_counter = 0;
+	static uint8_t last_ir_level = _BV(PD0);
+	static uint8_t ir_counter = 127;
 	static int8_t previous_toggle = -1;
+	static int16_t repeat_countdown = 0;
+	
+	if(repeat_countdown > 0)
+		repeat_countdown--;
 
 	uint8_t ir_level = PIND & _BV(PD0);
 	if(ir_level == last_ir_level) {
-		// Increment the time intervals since last bit flip
-		ir_counter++;
-		if(ir_counter > 20) {
-			ir_bit_counter = 0;
+		if(ir_bit_counter > 0) {
+			// Increment the time interval since last bit flip
+			ir_counter++;
+			if(ir_counter >= 127) {
+				// Long pause - reset into non-listening mode
+				ir_bit_counter = 0;
+			}
 		}
 	} else {
 		if(ir_counter > 3) {
@@ -153,8 +160,21 @@ inline static void ir_receive(void) {
 			ir_counter = 0;
 			
 			if(ir_bit_counter == IR_MESSAGE_LENGTH) {
-				handle_message(&current_message, previous_toggle == current_message.toggle);
+				uint8_t is_repeat = previous_toggle == current_message.toggle;
+				// Only bother decoding the message if it's not a repeat
+				// or the repeat countdown has expired.
+				if(repeat_countdown == 0 || !is_repeat) {
+					handle_message(&current_message, is_repeat);
+
+					// Set a delay until next allowable repeat - longer for a first repeat
+					repeat_countdown = is_repeat?1000:3000;
+				}
+				
+				// Reset the bit clock and counter
 				ir_bit_counter = 0;
+				ir_counter = 127;
+				
+				// Store the previous toggle value
 				previous_toggle = current_message.toggle;
 			}
 		} else {
@@ -206,12 +226,12 @@ static uint8_t read_font_column(uint8_t character, uint8_t column) {
 	return pgm_read_byte(font + (character * 5) + column);
 }
 
-static void shift_left() {
+static void shift_left(void) {
 	for(int i = 7; i > 0; i--)
 		display[i] = display[i - 1];
 }
 
-static void shift_right() {
+static void shift_right(void) {
 	for(int i = 0; i < 7; i++)
 		display[i] = display[i + 1];
 }
@@ -270,7 +290,7 @@ void marquee(void) {
 }
 
 void edit() {
-	uint8_t repeats = 0, idx = 0;
+	uint8_t idx = 0;
 	char current;
 	
 
@@ -336,14 +356,8 @@ void edit() {
 			mode = marquee;
 			keypresses &= ~KEY_MENU;
 		} else {
-			repeats = 0;
 			continue;
 		}
-
-		if(repeats == 0)
-			_delay_ms(750);
-		_delay_ms(250);
-		repeats++;
 	}
 }
 
