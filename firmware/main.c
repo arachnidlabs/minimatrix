@@ -19,13 +19,30 @@ FUSES = {
 
 #define PWM_ON() (TCCR1B |= _BV(CS11))
 #define PWM_OFF() (TCCR1B &= ~_BV(CS11))
+#define PORTD_ROWS _BV(PD6) | _BV(PD5) | _BV(PD4) | _BV(PD3) | _BV(PD2) | _BV(PD1)
+#define PORTA_ROWS _BV(PA1) | _BV(PA0)
+#define ENABLE_ROW(row) if(row < 6) PORTD &= ~row_pins[row]; else PORTA &= ~row_pins[row]
 
-#define MAX_DATA_LENGTH 248
+#define MAX_DATA_LENGTH 248 // bytes
+#define IR_MESSAGE_LENGTH 14 // bits
 
-#define IR_MESSAGE_LENGTH 14
+#define IS_MARQUEE 0
+#define IS_ANIMATION 1
 
-#define MODE_MARQUEE 0
-#define MODE_EDIT 1
+#define COMMAND_NONE 	0xFFFF
+#define COMMAND_STANDBY 0x000C
+#define COMMAND_UP		0x0020
+#define COMMAND_DOWN	0x0021
+#define COMMAND_LEFT	0x0011
+#define COMMAND_RIGHT	0x0010
+#define COMMAND_MENU	0x000B
+
+#define KEY_STANDBY 0x01
+#define KEY_UP 		0x02
+#define KEY_DOWN 	0x04
+#define KEY_LEFT 	0x08
+#define KEY_RIGHT 	0x10
+#define KEY_MENU	0x20
 
 typedef union {
 	uint16_t data;
@@ -34,11 +51,8 @@ typedef union {
 		unsigned int toggle : 1;
 		unsigned int field : 1;
 		unsigned int empty : 3;
-	} message;
+	};
 } ir_message_t;
-
-#define IS_MARQUEE 0
-#define IS_ANIMATION 1
 
 typedef struct {
 	uint8_t flags;
@@ -77,12 +91,8 @@ eedata_t stored_config EEMEM = {
 static config_t config;
 static uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 static uint8_t row = 0;
-static uint8_t last_ir_level = 1;
-static uint8_t ir_counter = 0;
-static uint8_t ir_bit_counter = 0;
-static ir_message_t current_message;
 static mode_func mode;
-static int8_t previous_toggle = -1;
+static uint8_t keypresses = 0;
  
 const char row_pins[] = {
 	_BV(PD6),
@@ -95,44 +105,44 @@ const char row_pins[] = {
 	_BV(PA0)
 };
 
-#define PORTD_ROWS _BV(PD6) | _BV(PD5) | _BV(PD4) | _BV(PD3) | _BV(PD2) | _BV(PD1)
-#define PORTA_ROWS _BV(PA1) | _BV(PA0)
-
-#define ENABLE_ROW(row) if(row < 6) PORTD &= ~row_pins[row]; else PORTA &= ~row_pins[row]
-
-#define COMMAND_NONE 	0xFFFF
-#define COMMAND_STANDBY 0x000C
-#define COMMAND_UP		0x0020
-#define COMMAND_DOWN	0x0021
-#define COMMAND_LEFT	0x0011
-#define COMMAND_RIGHT	0x0010
-#define COMMAND_MENU	0x000B
-
-static uint16_t get_message(void) {
-	if(ir_bit_counter < IR_MESSAGE_LENGTH)
-		return COMMAND_NONE;
-	return current_message.message.command;
+inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
+	switch(message->command) {
+	case COMMAND_STANDBY:
+		keypresses |= KEY_STANDBY;
+		break;
+	case COMMAND_UP:
+		keypresses |= KEY_UP;
+		break;
+	case COMMAND_DOWN:
+		keypresses |= KEY_DOWN;
+		break;
+	case COMMAND_LEFT:
+		keypresses |= KEY_LEFT;
+		break;
+	case COMMAND_RIGHT:
+		keypresses |= KEY_RIGHT;
+		break;
+	case COMMAND_MENU:
+		if(!is_repeat)
+			keypresses |= KEY_MENU;
+		break;
+	}
 }
 
-static uint8_t message_is_repeat(void) {
-	return previous_toggle == current_message.message.toggle;
-}
-
-static void ir_clear_buffer(void) {
-	previous_toggle = current_message.message.toggle;
-	ir_bit_counter = 0;
-}
-
-static void ir_receive(void) {
-	if(ir_bit_counter == IR_MESSAGE_LENGTH)
-		return;
+inline static void ir_receive(void) {
+	static ir_message_t current_message;
+	static uint8_t ir_bit_counter = 0;
+	static uint8_t last_ir_level = 1;
+	static uint8_t ir_counter = 0;
+	static int8_t previous_toggle = -1;
 
 	uint8_t ir_level = PIND & _BV(PD0);
 	if(ir_level == last_ir_level) {
 		// Increment the time intervals since last bit flip
 		ir_counter++;
-		if(ir_counter > 20)
-			ir_clear_buffer(); // Long pause, reset
+		if(ir_counter > 20) {
+			ir_bit_counter = 0;
+		}
 	} else {
 		if(ir_counter > 8) {
 			// Direction of transition indicates bit value
@@ -142,6 +152,12 @@ static void ir_receive(void) {
 				current_message.data |= 1;
 			ir_bit_counter++;
 			ir_counter = 0;
+			
+			if(ir_bit_counter == IR_MESSAGE_LENGTH) {
+				handle_message(&current_message, previous_toggle == current_message.toggle);
+				ir_bit_counter = 0;
+				previous_toggle = current_message.toggle;
+			}
 		} else {
 			// This transition is between bits, ignore it
 		}
@@ -230,16 +246,10 @@ void marquee(void) {
 
 			for(int k = 0; k < config.mode.marquee.delay && mode == marquee; k++) {
 				_delay_ms(10);
-				uint16_t cmd = get_message();
-				if(cmd == COMMAND_NONE) continue;
-				
-				switch(cmd) {
-				case COMMAND_MENU:
-					if(!message_is_repeat())
-						mode = edit;
-					break;
+				if(keypresses & KEY_MENU) {
+					mode = edit;
+					keypresses &= ~KEY_MENU;
 				}
-				ir_clear_buffer();
 			}
 		}
 	}
@@ -272,14 +282,7 @@ void edit() {
 	show_current();
 
 	while(mode == edit) {
-		uint16_t cmd = get_message();
-		if(cmd == COMMAND_NONE) {
-			repeats = 0;
-			continue;
-		}
-
-		switch(get_message()) {
-		case COMMAND_LEFT:
+		if(keypresses & KEY_LEFT) {
 			if(idx > 0) {
 				write_dirty();
 				idx--;
@@ -295,8 +298,8 @@ void edit() {
 					_delay_ms(50);
 				}
 			}
-			break;
-		case COMMAND_RIGHT:
+			keypresses &= ~KEY_LEFT;
+		} else if(keypresses & KEY_RIGHT) {
 			if(idx < MAX_DATA_LENGTH && current != '\0') {
 				write_dirty();
 				idx++;
@@ -313,28 +316,25 @@ void edit() {
 				}
 				show_current();			
 			}
-			break;
-		case COMMAND_UP:
+			keypresses &= ~KEY_RIGHT;
+		} else if(keypresses & KEY_UP) {
 			current++;
 			show_current();
-			break;
-		case COMMAND_DOWN:
+			keypresses &= ~KEY_UP;
+		} else if(keypresses & KEY_DOWN) {
 			current--;
 			show_current();	
-			break;
-		case COMMAND_MENU:
-			if(!message_is_repeat()) {
-				write_dirty();
-				mode = marquee;
-			}
-			break;
-		default:
-			continue;
+			keypresses &= ~KEY_DOWN;
+		} else if(keypresses & KEY_MENU) {
+			write_dirty();
+			mode = marquee;
+			keypresses &= ~KEY_MENU;
+		} else {
+			repeats = 0;
 		}
 
 		if(repeats == 0)
 			_delay_ms(750);
-		ir_clear_buffer();
 		_delay_ms(250);
 		repeats++;
 	}

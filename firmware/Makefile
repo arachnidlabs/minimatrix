@@ -82,8 +82,8 @@ LDFLAGS = $(EXTMEMOPTS) $(LDMAP) $(PRINTF_LIB) $(SCANF_LIB) $(MATH_LIB)
 
 # Programming support using avrdude. Settings and variables.
 
-AVRDUDE_PROGRAMMER = avrispv2
-AVRDUDE_PORT = /dev/ttyACM0
+AVRDUDE_PROGRAMMER = avrispmkII
+AVRDUDE_PORT = usb
 
 AVRDUDE_WRITE_FLASH = -B 1 -U flash:w:$(TARGET).hex
 AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(TARGET).eep
