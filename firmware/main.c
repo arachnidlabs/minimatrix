@@ -206,6 +206,21 @@ static uint8_t read_font_column(uint8_t character, uint8_t column) {
 	return pgm_read_byte(font + (character * 5) + column);
 }
 
+static void shift_left() {
+	for(int i = 7; i > 0; i--)
+		display[i] = display[i - 1];
+}
+
+static void shift_right() {
+	for(int i = 0; i < 7; i++)
+		display[i] = display[i + 1];
+}
+
+static void draw_character(char ch) {
+	for(int i = 0; i < 5; i++)
+		display[5 - i] = read_font_column(ch, i);
+}
+
 void animate(void);
 void marquee(void);
 void edit(void);
@@ -233,9 +248,7 @@ void marquee(void) {
 		}
 
 		for(int j = 0; j < 5 + config.mode.marquee.spacing; j++) {
-			// Shift everything else left
-			for(int k = 7; k > 0; k--)
-				display[k] = display[k - 1];
+			shift_left();
 			
 			if(j >= 5) {
 				// Empty columns at the end
@@ -269,18 +282,13 @@ void edit() {
 		current = eeprom_read_byte((uint8_t*)&stored_config.data[idx]);
 	}
 	
-	void show_current(void) {
-		for(int i = 0; i < 5; i++)
-			display[5 - i] = read_font_column(current, i);
-	}		
-	
 	display[0] = 0;
 	display[6] = 0;
 	display[7] = 0;
 	
 	// Load and show the first character
 	read_current();
-	show_current();
+	draw_character(current);
 
 	while(mode == edit) {
 		if(keypresses & KEY_LEFT) {
@@ -289,8 +297,7 @@ void edit() {
 				idx--;
 				read_current();
 				for(int i = 0; i < 8; i++) {
-					for(int j = 0; j < 7; j++)
-						display[j] = display[j + 1];
+					shift_right();
 					if(i > 0 && i < 6) {
 						display[7] = read_font_column(current, 5 - i);
 					} else {
@@ -305,26 +312,24 @@ void edit() {
 				write_dirty();
 				idx++;
 				read_current();
-				for(int i = 0; i < 7; i++) {
-					for(int j = 7; j > 0; j--)
-						display[j] = display[j - 1];
-					if(i > 1 && i < 6) {
+				for(int i = 0; i < 8; i++) {
+					shift_left();
+					if(i > 1 && i < 7) {
 						display[0] = read_font_column(current, i - 2);
 					} else {
 						display[0] = 0;
 					}
 					_delay_ms(50);
 				}
-				show_current();			
 			}
 			keypresses &= ~KEY_RIGHT;
 		} else if(keypresses & KEY_UP) {
 			current++;
-			show_current();
+			draw_character(current);
 			keypresses &= ~KEY_UP;
 		} else if(keypresses & KEY_DOWN) {
 			current--;
-			show_current();	
+			draw_character(current);
 			keypresses &= ~KEY_DOWN;
 		} else if(keypresses & KEY_MENU) {
 			write_dirty();
