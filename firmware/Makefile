@@ -8,7 +8,7 @@
 MCU = attiny4313
 FORMAT = ihex
 TARGET = main
-SRC = $(TARGET).c glcdfont.c
+SRC = $(TARGET).c glcdfont.c glyphs.c
 ASRC = 
 OPT = s
 

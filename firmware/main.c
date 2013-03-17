@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 #include "glcdfont.h"
+#include "glyphs.h"
 
 FUSES = {
 	// Internal 8mhz oscillator; short startup; enable ISP programming.
@@ -17,8 +18,8 @@ FUSES = {
 	.high = FUSE_SPIEN,
 };
 
-#define PWM_ON() (TCCR1B |= _BV(CS11))
-#define PWM_OFF() (TCCR1B &= ~_BV(CS11))
+#define PWM_ON() (TCCR0B |= _BV(CS01) | _BV(CS00))
+#define PWM_OFF() (TCCR1B &= ~(_BV(CS01) | _BV(CS00)))
 #define PORTD_ROWS _BV(PD6) | _BV(PD5) | _BV(PD4) | _BV(PD3) | _BV(PD2) | _BV(PD1)
 #define PORTA_ROWS _BV(PA1) | _BV(PA0)
 #define ENABLE_ROW(row) if(row < 6) PORTD &= ~pgm_read_byte(&row_pins[row]); else PORTA &= ~pgm_read_byte(&row_pins[row])
@@ -43,6 +44,10 @@ FUSES = {
 #define KEY_LEFT 	0x08
 #define KEY_RIGHT 	0x10
 #define KEY_MENU	0x20
+#define INTERRUPT_KEYS (KEY_STANDBY | KEY_MENU)
+
+#define POWER_MODE_ACTIVE 0x00
+#define POWER_MODE_STANDBY 0x01
 
 typedef union {
 	uint16_t data;
@@ -75,6 +80,11 @@ typedef struct {
 
 typedef void (*mode_func)(void);
 
+typedef struct {
+	mode_func run;
+	uint8_t glyph_id;
+} mode_t;
+
 eedata_t stored_config EEMEM = {
 	.config = {
 		.flags = IS_MARQUEE,
@@ -90,9 +100,10 @@ eedata_t stored_config EEMEM = {
 
 static config_t config;
 static uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-static mode_func mode;
 static uint8_t keypresses = 0;
- 
+static uint8_t mode_id = 0;
+static uint8_t power_mode = 0;
+
 const char row_pins[] PROGMEM = {
 	_BV(PD6),
 	_BV(PD5),
@@ -104,10 +115,24 @@ const char row_pins[] PROGMEM = {
 	_BV(PA0)
 };
 
+inline static void enter_sleep(void) {
+	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+	sleep_enable();
+	sei();
+	sleep_cpu();
+	sleep_disable();
+	cli();
+	power_mode = POWER_MODE_STANDBY;
+}
+
 inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 	switch(message->command) {
 	case COMMAND_STANDBY:
-		keypresses |= KEY_STANDBY;
+		if(power_mode & POWER_MODE_ACTIVE) {
+			enter_sleep();
+		} else {
+			power_mode = POWER_MODE_ACTIVE;
+		}
 		break;
 	case COMMAND_UP:
 		keypresses |= KEY_UP;
@@ -128,7 +153,7 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 	}
 }
 
-inline static void ir_receive(void) {
+ISR(TIMER1_COMPA_vect) {
 	static ir_message_t current_message;
 	static uint8_t ir_bit_counter = 0;
 	static uint8_t last_ir_level = _BV(PD0);
@@ -139,12 +164,19 @@ inline static void ir_receive(void) {
 	if(repeat_countdown > 0)
 		repeat_countdown--;
 
+	// Temporary hack for beta board
+	DDRD &= ~_BV(PD2);
+	_delay_us(10);
 	uint8_t ir_level = PIND & _BV(PD0);
+	DDRD |= _BV(PD2);
+	
 	if(ir_level == last_ir_level) {
 		if(ir_bit_counter > 0) {
 			// Increment the time interval since last bit flip
 			ir_counter++;
 			if(ir_counter >= 127) {
+				/*if(power_mode == POWER_MODE_STANDBY)
+					enter_sleep();*/
 				// Long pause - reset into non-listening mode
 				ir_bit_counter = 0;
 			}
@@ -185,15 +217,12 @@ inline static void ir_receive(void) {
 	}
 }
 
-ISR(TIMER1_COMPA_vect) {
+ISR(TIMER0_COMPA_vect) {
 	static uint8_t row = 0;
 
 	// Turn off the old row
 	PORTD |= PORTD_ROWS;
 	PORTA |= PORTA_ROWS;
-	
-	// Poll the IR receiver
-	ir_receive();
 
 	// Set the column data
 	row = (row + 1) & 0x7;
@@ -204,9 +233,14 @@ ISR(TIMER1_COMPA_vect) {
 }
 
 static void ioinit(void) {
-	OCR1A = 250; // 8 megahertz / 8 / 125 = 8KHz
-	TIMSK |= _BV(OCIE1A); // Interrupt on counter reset
-	TCCR1B = _BV(WGM12); // CTC(OCR1A), /8 prescaler
+	// Enable timer 0: display refresh
+	OCR0A = 250; // 8 megahertz / 64 / 125 = 500Hz
+	TCCR0B = _BV(WGM01); // CTC(OCR0A), /64 prescaler
+	
+	OCR1A = 250; // 8 megahertz / 8 / 250 = 4KHz
+	TCCR1B = _BV(WGM12) | _BV(CS11); // CTC(OCR1A), /8 prescaler
+
+	TIMSK |= _BV(OCIE1A) | _BV(OCIE0A); // Interrupt on counter reset
 
 	// PORTB is all output for columns
 	DDRB = 0xff;
@@ -241,12 +275,8 @@ static void draw_character(char ch) {
 		display[5 - i] = read_font_column(ch, i);
 }
 
-void animate(void);
-void marquee(void);
-void edit(void);
-
 void animate(void) {
-	while(mode == animate) {
+	while(!(keypresses & KEY_MENU)) {
 		uint8_t *dataptr = stored_config.data;
 		for(int i = 0; i < config.mode.animate.framecount; i++) {
 			for(int j = 0; j < 8; j++) {
@@ -260,7 +290,7 @@ void animate(void) {
 
 void marquee(void) {
 	uint8_t *msgptr = stored_config.data;
-	while(mode == marquee) {
+	while(!(keypresses & KEY_MENU)) {
 		uint8_t current = eeprom_read_byte(msgptr++);
 		if(current == '\0') { 
 			msgptr = stored_config.data;
@@ -278,21 +308,16 @@ void marquee(void) {
 				display[0] = read_font_column(current, j);
 			}
 
-			for(int k = 0; k < config.mode.marquee.delay && mode == marquee; k++) {
+			for(int k = 0; k < config.mode.marquee.delay && !(keypresses & KEY_MENU); k++) {
 				_delay_ms(10);
-				if(keypresses & KEY_MENU) {
-					mode = edit;
-					keypresses &= ~KEY_MENU;
-				}
 			}
 		}
 	}
 }
 
-void edit() {
+void edit(void) {
 	uint8_t idx = 0;
 	char current;
-	
 
 	void write_dirty(void) {
 		eeprom_update_byte((uint8_t*)&stored_config.data[idx], current);
@@ -310,7 +335,7 @@ void edit() {
 	read_current();
 	draw_character(current);
 
-	while(mode == edit) {
+	while(!(keypresses & KEY_MENU)) {
 		if(keypresses & KEY_LEFT) {
 			if(idx > 0) {
 				write_dirty();
@@ -351,12 +376,67 @@ void edit() {
 			current--;
 			draw_character(current);
 			keypresses &= ~KEY_DOWN;
-		} else if(keypresses & KEY_MENU) {
-			write_dirty();
-			mode = marquee;
-			keypresses &= ~KEY_MENU;
 		} else {
 			continue;
+		}
+	}
+	write_dirty();
+}
+
+void play(void) {
+	if(config.flags & IS_ANIMATION) {
+		animate();
+	} else {
+		marquee();
+	}
+}
+
+mode_t modes[] = {
+	{play, 0},
+	{edit, 1},
+	{NULL, 0}
+};
+
+static uint8_t read_glyph_column(uint8_t glyph_id, uint8_t column) {
+	return pgm_read_byte(glyphs + glyph_id * 8 + column);
+}
+
+static void draw_glyph(uint8_t glyph_id) {
+	// Show the current glyph
+	for(uint8_t i = 0; i < 8; i++)
+		display[i] = read_glyph_column(glyph_id, 7 - i);
+}
+
+void menu(void) {
+	draw_glyph(modes[mode_id].glyph_id);
+	for(;;) {
+		if(keypresses & KEY_LEFT) {
+			keypresses &= ~KEY_LEFT;
+			if(mode_id > 0) {
+				mode_id--;
+				
+				uint8_t glyph_id = modes[mode_id].glyph_id;
+				for(uint8_t i = 0; i < 8; i++) {
+					shift_right();
+					display[7] = read_glyph_column(glyph_id, 7 - i);
+					_delay_ms(50);
+				}
+			}
+		} else if(keypresses & KEY_RIGHT) {
+			keypresses &= ~KEY_RIGHT;
+			if(modes[mode_id + 1].run != NULL) {
+				mode_id++;
+
+				uint8_t glyph_id = modes[mode_id].glyph_id;
+				for(uint8_t i = 0; i < 8; i++) {
+					shift_left();
+					display[0] = read_glyph_column(glyph_id, i);
+					_delay_ms(50);
+				}
+			}
+		} else if(keypresses & KEY_MENU) {
+			keypresses &= ~KEY_MENU;
+			return;
 		}
 	}
 }
@@ -366,17 +446,16 @@ void main(void) __attribute__((noreturn));
 void main(void) {
 	eeprom_read_block(&config, &stored_config.config, sizeof(config_t));
 	
-	if(config.flags & IS_ANIMATION) {
-		mode = animate;
-	} else {
-		mode = marquee;
-	}
-	
 	ioinit();
 
 	PWM_ON();
 	
+	mode_id = 0;
 	for(;;) {
-		mode();
+		if(keypresses & KEY_MENU) {
+			keypresses &= ~KEY_MENU;
+			menu();
+		}
+		modes[mode_id].run();
 	}
 }
