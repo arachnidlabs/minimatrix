@@ -114,7 +114,7 @@ const char row_pins[] PROGMEM = {
 	_BV(PA0)
 };
 
-inline static void enter_sleep(void) {
+/*inline static void enter_sleep(void) {
 	MCUCR &= ~(_BV(ISC00) | _BV(ISC01));
 	GIMSK |= _BV(INT0);
 	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
@@ -122,8 +122,8 @@ inline static void enter_sleep(void) {
 	sei();
 	sleep_cpu();
 	sleep_disable();
-//	cli();
-}
+	cli();
+}*/
 
 inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 	switch(message->command) {
@@ -321,10 +321,10 @@ void marquee(void) {
 				_delay_ms(10);
 			}
 			
-			if(power_mode == POWER_MODE_STANDBY) {
+/*			if(power_mode == POWER_MODE_STANDBY) {
 				enter_sleep();
 				power_mode = POWER_MODE_ACTIVE;
-			}
+			}*/
 		}
 	}
 }
