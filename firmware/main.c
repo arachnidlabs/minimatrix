@@ -18,10 +18,9 @@ FUSES = {
 	.high = FUSE_SPIEN,
 };
 
-#define PWM_ON() (TCCR0B |= _BV(CS01) | _BV(CS00))
-#define PWM_OFF() (TCCR1B &= ~(_BV(CS01) | _BV(CS00)))
-#define PORTD_ROWS _BV(PD6) | _BV(PD5) | _BV(PD4) | _BV(PD3) | _BV(PD2) | _BV(PD1)
-#define PORTA_ROWS _BV(PA1) | _BV(PA0)
+#define PORTD_ROWS (_BV(PD6) | _BV(PD5) | _BV(PD4) | _BV(PD3) | _BV(PD2) | _BV(PD1))
+#define PORTA_ROWS (_BV(PA1) | _BV(PA0))
+#define PWM_ON() (TCCR0B |= _BV(CS01) | _BV(CS00), DDRD |= PORTD_ROWS, DDRA |= PORTA_ROWS)
 #define ENABLE_ROW(row) if(row < 6) PORTD &= ~pgm_read_byte(&row_pins[row]); else PORTA &= ~pgm_read_byte(&row_pins[row])
 
 #define MAX_DATA_LENGTH 248 // bytes
@@ -102,7 +101,7 @@ static config_t config;
 static uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 static uint8_t keypresses = 0;
 static uint8_t mode_id = 0;
-static uint8_t power_mode = 0;
+static volatile uint8_t power_mode = POWER_MODE_ACTIVE;
 
 const char row_pins[] PROGMEM = {
 	_BV(PD6),
@@ -116,22 +115,26 @@ const char row_pins[] PROGMEM = {
 };
 
 inline static void enter_sleep(void) {
+	MCUCR &= ~(_BV(ISC00) | _BV(ISC01));
+	GIMSK |= _BV(INT0);
 	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
 	sleep_enable();
 	sei();
 	sleep_cpu();
 	sleep_disable();
-	cli();
-	power_mode = POWER_MODE_STANDBY;
+//	cli();
 }
 
 inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 	switch(message->command) {
 	case COMMAND_STANDBY:
-		if(power_mode & POWER_MODE_ACTIVE) {
-			enter_sleep();
-		} else {
+		if(is_repeat) break;
+		if(power_mode == POWER_MODE_STANDBY) {
 			power_mode = POWER_MODE_ACTIVE;
+			PWM_ON();
+		} else {
+			power_mode = POWER_MODE_STANDBY;
+			// The display ISR will disable itself when it sees we're in standby.
 		}
 		break;
 	case COMMAND_UP:
@@ -175,8 +178,6 @@ ISR(TIMER1_COMPA_vect) {
 			// Increment the time interval since last bit flip
 			ir_counter++;
 			if(ir_counter >= 127) {
-				/*if(power_mode == POWER_MODE_STANDBY)
-					enter_sleep();*/
 				// Long pause - reset into non-listening mode
 				ir_bit_counter = 0;
 			}
@@ -220,6 +221,19 @@ ISR(TIMER1_COMPA_vect) {
 ISR(TIMER0_COMPA_vect) {
 	static uint8_t row = 0;
 
+	if(power_mode == POWER_MODE_STANDBY) {
+		// Disable the timer
+		TCCR0B &= ~(_BV(CS01) | _BV(CS00));
+		
+		// Set the rows as inputs, with pullups disabled
+		DDRD &= ~PORTD_ROWS;
+		PORTD &= ~PORTD_ROWS;
+		DDRA &= ~PORTA_ROWS;
+		PORTA &= ~PORTA_ROWS;
+		PORTB = 0;
+		return;
+	}
+
 	// Turn off the old row
 	PORTD |= PORTD_ROWS;
 	PORTA |= PORTA_ROWS;
@@ -245,14 +259,9 @@ static void ioinit(void) {
 	// PORTB is all output for columns
 	DDRB = 0xff;
 
-	// PORTD is output for rows except PD0 which is the IR input
-	DDRD = PORTD_ROWS;
 	// Enable pullup on IR receiver pin
 	PORTD |= _BV(PD0);
 
-	// PORTA is output for rows
-	DDRA = PORTA_ROWS;
-	
 	sei();
 }
 
@@ -310,6 +319,11 @@ void marquee(void) {
 
 			for(int k = 0; k < config.mode.marquee.delay && !(keypresses & KEY_MENU); k++) {
 				_delay_ms(10);
+			}
+			
+			if(power_mode == POWER_MODE_STANDBY) {
+				enter_sleep();
+				power_mode = POWER_MODE_ACTIVE;
 			}
 		}
 	}
