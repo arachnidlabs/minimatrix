@@ -1,6 +1,6 @@
 #ifndef GLCDFONT_H
 #define GLCDFONT_H
 
-extern unsigned char font[];
+extern unsigned const char font[];
 
 #endif

@@ -85,7 +85,7 @@ LDFLAGS = $(EXTMEMOPTS) $(LDMAP) $(PRINTF_LIB) $(SCANF_LIB) $(MATH_LIB)
 AVRDUDE_PROGRAMMER = avrispmkII
 AVRDUDE_PORT = usb
 
-AVRDUDE_WRITE_FLASH = -B 1 -U flash:w:$(TARGET).hex
+AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
 AVRDUDE_WRITE_EEPROM = -U eeprom:w:$(TARGET).eep
 AVRDUDE_WRITE_FUSES = -U hfuse:w:hfuse.hex:i -U lfuse:w:lfuse.hex:i -u
 
@@ -154,7 +154,7 @@ eeprom: $(TARGET).eep
 
 # Burn the fuses
 fuses: $(TARGET).elf
-	avr-objcopy -B 8 -j .fuse -O ihex $(TARGET).elf fuses.hex --change-section-lma .fuse=0
+	avr-objcopy -j .fuse -O ihex $(TARGET).elf fuses.hex --change-section-lma .fuse=0
 	srec_cat fuses.hex -Intel -crop 0x00 0x01 -offset 0x00 -O lfuse.hex -Intel
 	srec_cat fuses.hex -Intel -crop 0x01 0x02 -offset -0x01 -O hfuse.hex -Intel
 	$(AVRDUDE) $(AVRDUDE_FLAGS) $(AVRDUDE_WRITE_FUSES)

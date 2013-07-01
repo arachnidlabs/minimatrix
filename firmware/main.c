@@ -18,10 +18,11 @@ FUSES = {
 	.high = FUSE_SPIEN,
 };
 
-#define PORTD_ROWS (_BV(PD6) | _BV(PD5) | _BV(PD4) | _BV(PD3) | _BV(PD2) | _BV(PD1))
+#define PORTD_ROWS (_BV(PD6) | _BV(PD5) | _BV(PD4) | _BV(PD3) | _BV(PD1) | _BV(PD0))
 #define PORTA_ROWS (_BV(PA1) | _BV(PA0))
 #define PWM_ON() (TCCR0B |= _BV(CS01) | _BV(CS00), DDRD |= PORTD_ROWS, DDRA |= PORTA_ROWS)
 #define ENABLE_ROW(row) if(row < 6) PORTD &= ~pgm_read_byte(&row_pins[row]); else PORTA &= ~pgm_read_byte(&row_pins[row])
+#define IR_PIN PD2
 
 #define MAX_DATA_LENGTH 248 // bytes
 #define IR_MESSAGE_LENGTH 14 // bits
@@ -45,8 +46,10 @@ FUSES = {
 #define KEY_MENU	0x20
 #define INTERRUPT_KEYS (KEY_STANDBY | KEY_MENU)
 
-#define POWER_MODE_ACTIVE 0x00
-#define POWER_MODE_STANDBY 0x01
+#define STATE_NORMAL 0x01
+#define STATE_MENU 0x02
+#define STATE_SLEEPY 0x04
+#define STATE_SLEEPING 0x08
 
 typedef union {
 	uint16_t data;
@@ -101,40 +104,49 @@ static config_t config;
 static uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 static uint8_t keypresses = 0;
 static uint8_t mode_id = 0;
-static volatile uint8_t power_mode = POWER_MODE_ACTIVE;
+static volatile uint8_t state = STATE_NORMAL;
 
 const char row_pins[] PROGMEM = {
 	_BV(PD6),
 	_BV(PD5),
 	_BV(PD4),
 	_BV(PD3),
-	_BV(PD2),
 	_BV(PD1),
-	_BV(PA1),
-	_BV(PA0)
+	_BV(PD0),
+	_BV(PA0),
+	_BV(PA1)
 };
 
-/*inline static void enter_sleep(void) {
-	MCUCR &= ~(_BV(ISC00) | _BV(ISC01));
+inline static void enter_sleep(void) {
+	MCUCR &= ~(_BV(ISC01) | _BV(ISC00));
 	GIMSK |= _BV(INT0);
 	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-	sleep_enable();
-	sei();
-	sleep_cpu();
-	sleep_disable();
-	cli();
-}*/
+	sleep_mode();
+	_delay_ms(10);
+	MCUCR |= _BV(ISC01);
+}
+
+ISR(INT0_vect) { }
 
 inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 	switch(message->command) {
 	case COMMAND_STANDBY:
 		if(is_repeat) break;
-		if(power_mode == POWER_MODE_STANDBY) {
-			power_mode = POWER_MODE_ACTIVE;
-			PWM_ON();
+		if(state & (STATE_NORMAL | STATE_MENU)) {
+			state = STATE_SLEEPING;
+
+			// Disable the display
+			TCCR0B &= ~(_BV(CS01) | _BV(CS00));
+			
+			// Set the rows as inputs, with pullups disabled
+			DDRD &= ~PORTD_ROWS;
+			PORTD &= ~PORTD_ROWS;
+			DDRA &= ~PORTA_ROWS;
+			PORTA &= ~PORTA_ROWS;
+			PORTB = 0;
 		} else {
-			power_mode = POWER_MODE_STANDBY;
-			// The display ISR will disable itself when it sees we're in standby.
+			state = STATE_NORMAL;
+			PWM_ON();
 		}
 		break;
 	case COMMAND_UP:
@@ -150,8 +162,12 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 		keypresses |= KEY_RIGHT;
 		break;
 	case COMMAND_MENU:
-		if(!is_repeat)
-			keypresses |= KEY_MENU;
+		if(is_repeat) break;
+		if(state == STATE_NORMAL) {
+			state = STATE_MENU;
+		} else {
+			state = STATE_NORMAL;
+		}
 		break;
 	}
 }
@@ -159,30 +175,39 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 ISR(TIMER1_COMPA_vect) {
 	static ir_message_t current_message;
 	static uint8_t ir_bit_counter = 0;
-	static uint8_t last_ir_level = _BV(PD0);
-	static uint8_t ir_counter = 127;
+	static uint8_t last_ir_level = _BV(IR_PIN);
+	static uint16_t ir_counter = 127;
 	static int8_t previous_toggle = -1;
 	static int16_t repeat_countdown = 0;
+	static uint8_t pressed = 0;
 	
 	if(repeat_countdown > 0)
 		repeat_countdown--;
 
-	// Temporary hack for beta board
-	DDRD &= ~_BV(PD2);
-	_delay_us(10);
-	uint8_t ir_level = PIND & _BV(PD0);
-	DDRD |= _BV(PD2);
+	uint8_t ir_level = PIND & _BV(IR_PIN);
 	
 	if(ir_level == last_ir_level) {
-		if(ir_bit_counter > 0) {
-			// Increment the time interval since last bit flip
-			ir_counter++;
-			if(ir_counter >= 127) {
-				// Long pause - reset into non-listening mode
-				ir_bit_counter = 0;
+		// Increment the time interval since last bit flip
+		ir_counter++;
+
+		if(ir_counter >= 2000) {
+			if(ir_level == 0 && pressed == 0) {
+				// Button press
+				current_message.command = COMMAND_STANDBY;
+				handle_message(&current_message, 0);
+				ir_counter = 0;
+				pressed = 1;
+			} else if(ir_level != 0 && state == STATE_SLEEPY) {
+				state = STATE_SLEEPING;
 			}
 		}
+
+		if(ir_bit_counter > 0 && ir_counter >= 127) {
+			// Long pause - reset into non-listening mode
+			ir_bit_counter = 0;
+		}
 	} else {
+		pressed = 0;
 		if(ir_counter > 3) {
 			// Direction of transition indicates bit value
 			// space to mark (ir_level=0) is a 1, mark to space is 0.
@@ -221,19 +246,6 @@ ISR(TIMER1_COMPA_vect) {
 ISR(TIMER0_COMPA_vect) {
 	static uint8_t row = 0;
 
-	if(power_mode == POWER_MODE_STANDBY) {
-		// Disable the timer
-		TCCR0B &= ~(_BV(CS01) | _BV(CS00));
-		
-		// Set the rows as inputs, with pullups disabled
-		DDRD &= ~PORTD_ROWS;
-		PORTD &= ~PORTD_ROWS;
-		DDRA &= ~PORTA_ROWS;
-		PORTA &= ~PORTA_ROWS;
-		PORTB = 0;
-		return;
-	}
-
 	// Turn off the old row
 	PORTD |= PORTD_ROWS;
 	PORTA |= PORTA_ROWS;
@@ -260,7 +272,7 @@ static void ioinit(void) {
 	DDRB = 0xff;
 
 	// Enable pullup on IR receiver pin
-	PORTD |= _BV(PD0);
+	PORTD |= _BV(IR_PIN);
 
 	sei();
 }
@@ -285,7 +297,7 @@ static void draw_character(char ch) {
 }
 
 void animate(void) {
-	while(!(keypresses & KEY_MENU)) {
+	while(state == STATE_NORMAL) {
 		uint8_t *dataptr = stored_config.data;
 		for(int i = 0; i < config.mode.animate.framecount; i++) {
 			for(int j = 0; j < 8; j++) {
@@ -299,7 +311,7 @@ void animate(void) {
 
 void marquee(void) {
 	uint8_t *msgptr = stored_config.data;
-	while(!(keypresses & KEY_MENU)) {
+	while(state == STATE_NORMAL) {
 		uint8_t current = eeprom_read_byte(msgptr++);
 		if(current == '\0') { 
 			msgptr = stored_config.data;
@@ -320,11 +332,6 @@ void marquee(void) {
 			for(int k = 0; k < config.mode.marquee.delay && !(keypresses & KEY_MENU); k++) {
 				_delay_ms(10);
 			}
-			
-/*			if(power_mode == POWER_MODE_STANDBY) {
-				enter_sleep();
-				power_mode = POWER_MODE_ACTIVE;
-			}*/
 		}
 	}
 }
@@ -349,7 +356,7 @@ void edit(void) {
 	read_current();
 	draw_character(current);
 
-	while(!(keypresses & KEY_MENU)) {
+	while(state == STATE_NORMAL) {
 		if(keypresses & KEY_LEFT) {
 			if(idx > 0) {
 				write_dirty();
@@ -408,7 +415,8 @@ void play(void) {
 mode_t modes[] = {
 	{play, 0},
 	{edit, 1},
-	{NULL, 0}
+	{NULL, 0},
+	{}
 };
 
 static uint8_t read_glyph_column(uint8_t glyph_id, uint8_t column) {
@@ -423,7 +431,7 @@ static void draw_glyph(uint8_t glyph_id) {
 
 void menu(void) {
 	draw_glyph(modes[mode_id].glyph_id);
-	for(;;) {
+	while(state == STATE_MENU) {
 		if(keypresses & KEY_LEFT) {
 			keypresses &= ~KEY_LEFT;
 			if(mode_id > 0) {
@@ -448,9 +456,6 @@ void menu(void) {
 					_delay_ms(50);
 				}
 			}
-		} else if(keypresses & KEY_MENU) {
-			keypresses &= ~KEY_MENU;
-			return;
 		}
 	}
 }
@@ -466,10 +471,23 @@ void main(void) {
 	
 	mode_id = 0;
 	for(;;) {
-		if(keypresses & KEY_MENU) {
-			keypresses &= ~KEY_MENU;
+		switch(state) {
+		case STATE_MENU:
+			// Show the menu
 			menu();
+			break;
+		case STATE_NORMAL:
+			// Run a standard function
+			modes[mode_id].run();
+			break;
+		case STATE_SLEEPING:
+			// Go to sleep
+			enter_sleep();
+			state = STATE_SLEEPY;
+			break;
+		case STATE_SLEEPY:
+			// Wait to enter STATE_SLEEPING or STATE_NORMAL
+			break;
 		}
-		modes[mode_id].run();
 	}
 }

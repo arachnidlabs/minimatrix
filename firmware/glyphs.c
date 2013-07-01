@@ -3,7 +3,7 @@
 
 #include "glyphs.h"
 
-uint8_t glyphs[] PROGMEM = {
+unsigned const char glyphs[] PROGMEM = {
 	0b00000000, // 0 - Play
 	0b00000000,
 	0b01111111,
