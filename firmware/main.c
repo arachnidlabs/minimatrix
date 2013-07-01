@@ -281,19 +281,19 @@ static uint8_t read_font_column(uint8_t character, uint8_t column) {
 	return pgm_read_byte(font + (character * 5) + column);
 }
 
-static void shift_left(void) {
+static void shift_right(void) {
 	for(int i = 7; i > 0; i--)
 		display[i] = display[i - 1];
 }
 
-static void shift_right(void) {
+static void shift_left(void) {
 	for(int i = 0; i < 7; i++)
 		display[i] = display[i + 1];
 }
 
 static void draw_character(char ch) {
 	for(int i = 0; i < 5; i++)
-		display[5 - i] = read_font_column(ch, i);
+		display[i + 2] = read_font_column(ch, i);
 }
 
 void animate(void) {
@@ -323,10 +323,10 @@ void marquee(void) {
 			
 			if(j >= 5) {
 				// Empty columns at the end
-				display[0] = 0;
+				display[7] = 0;
 			} else {
 				// Display the next column of the current letter 
-				display[0] = read_font_column(current, j);
+				display[7] = read_font_column(current, j);
 			}
 
 			for(int k = 0; k < config.mode.marquee.delay && !(keypresses & KEY_MENU); k++) {
@@ -349,7 +349,7 @@ void edit(void) {
 	}
 	
 	display[0] = 0;
-	display[6] = 0;
+	display[1] = 0;
 	display[7] = 0;
 	
 	// Load and show the first character
@@ -365,9 +365,9 @@ void edit(void) {
 				for(int i = 0; i < 8; i++) {
 					shift_right();
 					if(i > 0 && i < 6) {
-						display[7] = read_font_column(current, 5 - i);
+						display[0] = read_font_column(current, 5 - i);
 					} else {
-						display[7] = 0;
+						display[0] = 0;
 					}
 					_delay_ms(50);
 				}
@@ -381,9 +381,9 @@ void edit(void) {
 				for(int i = 0; i < 8; i++) {
 					shift_left();
 					if(i > 1 && i < 7) {
-						display[0] = read_font_column(current, i - 2);
+						display[7] = read_font_column(current, i - 2);
 					} else {
-						display[0] = 0;
+						display[7] = 0;
 					}
 					_delay_ms(50);
 				}
@@ -426,7 +426,7 @@ static uint8_t read_glyph_column(uint8_t glyph_id, uint8_t column) {
 static void draw_glyph(uint8_t glyph_id) {
 	// Show the current glyph
 	for(uint8_t i = 0; i < 8; i++)
-		display[i] = read_glyph_column(glyph_id, 7 - i);
+		display[i] = read_glyph_column(glyph_id, i);
 }
 
 void menu(void) {
@@ -440,7 +440,7 @@ void menu(void) {
 				uint8_t glyph_id = modes[mode_id].glyph_id;
 				for(uint8_t i = 0; i < 8; i++) {
 					shift_right();
-					display[7] = read_glyph_column(glyph_id, 7 - i);
+					display[0] = read_glyph_column(glyph_id, 7 - i);
 					_delay_ms(50);
 				}
 			}
@@ -452,7 +452,7 @@ void menu(void) {
 				uint8_t glyph_id = modes[mode_id].glyph_id;
 				for(uint8_t i = 0; i < 8; i++) {
 					shift_left();
-					display[0] = read_glyph_column(glyph_id, i);
+					display[7] = read_glyph_column(glyph_id, i);
 					_delay_ms(50);
 				}
 			}
