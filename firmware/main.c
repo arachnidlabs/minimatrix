@@ -44,7 +44,6 @@ FUSES = {
 #define KEY_LEFT 	0x08
 #define KEY_RIGHT 	0x10
 #define KEY_MENU	0x20
-#define INTERRUPT_KEYS (KEY_STANDBY | KEY_MENU)
 
 #define STATE_NORMAL 0x01
 #define STATE_MENU 0x02
