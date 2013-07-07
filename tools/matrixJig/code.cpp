@@ -162,7 +162,7 @@ boolean verifyFuses (const byte *fuses, const byte *fusemask)
 */
 
 // Returns number of bytes decoded
-byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page)
+byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page, int pin1, int pin2, int pinoff)
 {
   
   boolean firstline = true;
@@ -183,7 +183,7 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
     
       // read one line!
     if (pgm_read_byte(hextext++) != ':') {
-      error("No colon?");
+      error("No colon?", pin1, pin2, pinoff);
       break;
     }
     // Read the byte count into 'len'
@@ -234,7 +234,7 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
       page_idx++;
 
       if (page_idx > pagesize) {
-          error("Too much code");
+          error("Too much code", pin1, pin2, pinoff);
 	  break;
       }
     }
@@ -242,18 +242,18 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
     b = (b<<4) + hexton(pgm_read_byte(hextext++));
     cksum += b;
     if (cksum != 0) {
-      error("Bad checksum: ");
+      error("Bad checksum: ", pin1, pin2, pinoff);
       Serial.print(cksum, HEX);
     }
     if (pgm_read_byte(hextext++) != '\n') {
-      error("No end of line");
+      error("No end of line", pin1, pin2, pinoff);
       break;
     }
 #if VERBOSE
     Serial.println();
     Serial.println(page_idx, DEC);
 #endif
-    if (page_idx == pagesize) 
+    //if (page_idx == pagesize) 
       break;
   }
 #if VERBOSE
@@ -310,7 +310,7 @@ boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize) {
 // verifyImage does a byte-by-byte verify of the flash hex against the chip
 // Thankfully this does not have to be done by pages!
 // returns true if the image is the same as the hextext, returns false on any error
-boolean verifyImage (byte *hextext)  {
+boolean verifyImage (byte *hextext, int pin1, int pin2, int pinoff)  {
   uint16_t address = 0;
   
   SPI.setClockDivider(CLOCKSPEED_FLASH); 
@@ -323,7 +323,7 @@ boolean verifyImage (byte *hextext)  {
     
       // read one line!
     if (pgm_read_byte(hextext++) != ':') {
-      error("No colon");
+      error("No colon", pin1, pin2, pinoff);
       return false;
     }
     len = hexton(pgm_read_byte(hextext++));
@@ -388,12 +388,12 @@ boolean verifyImage (byte *hextext)  {
     b = (b<<4) + hexton(pgm_read_byte(hextext++));
     cksum += b;
     if (cksum != 0) {
-      error("Bad checksum: ");
+      error("Bad checksum: ", pin1, pin2, pinoff);
       Serial.print(cksum, HEX);
       return false;
     }
     if (pgm_read_byte(hextext++) != '\n') {
-      error("No end of line");
+      error("No end of line", pin1, pin2, pinoff);
       return false;
     }
   }

@@ -1,3 +1,4 @@
+#define VERBOSE 1
 #if ARDUINO >= 100
  #include "Arduino.h"
 #else
@@ -42,12 +43,12 @@ typedef struct alias {
 
 // Useful message printing definitions
 
-#define debug(string) // flashprint(PSTR(string));
+#define debug(string) //flashprint(PSTR(string));
 
 
-void pulse (int pin, int times);
+void pulse (int pin1, int pin2, int pinoff, int times);
 void flashprint (const char p[]);
-
+void led_on(int pin1, int pin2, int pinoff);
 
 uint16_t spi_transaction (uint8_t a, uint8_t b, uint8_t c, uint8_t d);
 image_t *findImage (uint16_t signature);
@@ -56,12 +57,12 @@ image_t *findImage (uint16_t signature);
 uint16_t readSignature (void);
 boolean programFuses (const byte *fuses);
 void eraseChip(void);
-boolean verifyImage (byte *hextext);
+boolean verifyImage (byte *hextext, int pin1, int pin2, int pinoff);
 void busyWait(void);
 boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize);
 byte hexton (byte h);
-byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page);
+byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page, int pin1, int pin2, int pinoff);
 boolean verifyFuses (const byte *fuses, const byte *fusemask);
-void error(char *string);
+void error(char *string, int pin1, int pin2, int pinoff);
 
 #endif

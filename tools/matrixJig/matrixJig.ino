@@ -1,4 +1,5 @@
 // Standalone AVR ISP programmer
+// Modified July 2013 by Nick Johnson <nick@arachnidlabs.com>
 // August 2011 by Limor Fried / Ladyada / Adafruit
 // Jan 2011 by Bill Westfield ("WestfW")
 //
@@ -15,9 +16,6 @@
 // 11: MOSI
 // 12: MISO
 // 13: SCK
-//  9: 8 MHz clock output - connect this to the XTAL1 pin of the AVR
-//     if you want to program a chip that requires a crystal without
-//     soldering a crystal in
 // ----------------------------------------------------------------------
 
 
@@ -26,7 +24,7 @@
 
 // Global Variables
 int pmode=0;
-byte pageBuffer[128];		       /* One page of flash */
+byte pageBuffer[64];		       /* One page of flash */
 
 
 /*
@@ -36,63 +34,67 @@ byte pageBuffer[128];		       /* One page of flash */
 #define MISO 12
 #define MOSI 11
 #define RESET 10
-#define CLOCK 9     // self-generate 8mhz clock - handy!
+#define TARGET_POWER 9
 
-#define BUTTON A1
-#define PIEZOPIN A3
+#define ISP_A A2, A1, A3
+#define ISP_B A1, A2, A3
+#define TEST_A A0, A1, A2
+#define TEST_B A1, A0, A2
+#define PROG_A A0, A2, A1
+#define PROG_B A2, A0, A1
+
+void set_prescaler(int prescaler) {
+  cli();
+  CLKPR = _BV(CLKPCE);
+  CLKPR = prescaler;
+  sei();
+}
 
 void setup () {
   Serial.begin(57600);			/* Initialize serial for status msgs */
-  Serial.println("\nAdaBootLoader Bootstrap programmer (originally OptiLoader Bill Westfield (WestfW))");
+  Serial.println("\nMatrixjig Bootstrap programmer (originally OptiLoader Bill Westfield (WestfW))");
 
-  pinMode(PIEZOPIN, OUTPUT);
+  pinMode(TARGET_POWER, OUTPUT);
 
-  pinMode(LED_PROGMODE, OUTPUT);
-  pulse(LED_PROGMODE,2);
-  pinMode(LED_ERR, OUTPUT);
-  pulse(LED_ERR, 2);
-
-  pinMode(BUTTON, INPUT);     // button for next programming
-  digitalWrite(BUTTON, HIGH); // pullup
-  
-  pinMode(CLOCK, OUTPUT);
-  // setup high freq PWM on pin 9 (timer 1)
-  // 50% duty cycle -> 8 MHz
-  OCR1A = 0;
-  ICR1 = 1;
-  // OC1A output, fast PWM
-  TCCR1A = _BV(WGM11) | _BV(COM1A1);
-  TCCR1B = _BV(WGM13) | _BV(WGM12) | _BV(CS10); // no clock prescale
+  pulse(ISP_A, 2);
+  pulse(TEST_A, 2);
+  pulse(PROG_A, 2);
   
 }
 
 void loop (void) {
   Serial.println("\nType 'G' or hit BUTTON for next chip");
   while (1) {
-    if  ((! digitalRead(BUTTON)) || (Serial.read() == 'G'))
+    if  (Serial.read() == 'G')
       break;  
   }
-    
+  
+  led_on(ISP_A);
+  set_prescaler(0x1);
   target_poweron();			/* Turn on target power */
 
   uint16_t signature;
   image_t *targetimage;
         
-  if (! (signature = readSignature()))		// Figure out what kind of CPU
-    error("Signature fail");
+  if (! (signature = readSignature()))	// Figure out what kind of CPU
+    error("Signature fail", ISP_B);
+  
   if (! (targetimage = findImage(signature)))	// look for an image
-    error("Image fail");
+    error("Image fail", ISP_B);
   
   eraseChip();
 
-  if (! programFuses(targetimage->image_progfuses))	// get fuses ready to program
-    error("Programming Fuses fail");
+  if (! programFuses(targetimage->image_progfuses)) 	// get fuses ready to program
+    error("Programming Fuses fail", ISP_B);
+    
   
-  if (! verifyFuses(targetimage->image_progfuses, targetimage->fusemask) ) {
-    error("Failed to verify fuses");
-  } 
+  if (! verifyFuses(targetimage->image_progfuses, targetimage->fusemask) )
+    error("Failed to verify fuses", ISP_B);
+
+  set_prescaler(0x0);
 
   end_pmode();
+  led_on(TEST_A);
   start_pmode();
 
   byte *hextext = targetimage->image_hexcode;  
@@ -102,7 +104,7 @@ void loop (void) {
         
   //Serial.println(chipsize, DEC);
   while (pageaddr < chipsize) {
-     byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer);
+     byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer, TEST_B);
           
      boolean blankpage = true;
      for (uint8_t i=0; i<pagesize; i++) {
@@ -110,7 +112,7 @@ void loop (void) {
      }          
      if (! blankpage) {
        if (! flashPage(pageBuffer, pageaddr, pagesize))	
-	 error("Flash programming failed");
+	 error("Flash programming failed", TEST_B);
      }
      hextext = hextextpos;
      pageaddr += pagesize;
@@ -118,35 +120,33 @@ void loop (void) {
   
   // Set fuses to 'final' state
   if (! programFuses(targetimage->image_normfuses))
-    error("Programming Fuses fail");
+    error("Programming Fuses fail", TEST_B);
     
   end_pmode();
+  led_on(PROG_A);
   start_pmode();
   
   Serial.println("\nVerifing flash...");
-  if (! verifyImage(targetimage->image_hexcode) ) {
-    error("Failed to verify chip");
+  if (! verifyImage(targetimage->image_hexcode, PROG_B) ) {
+    error("Failed to verify chip", PROG_B);
   } else {
     Serial.println("\tFlash verified correctly!");
   }
 
   if (! verifyFuses(targetimage->image_normfuses, targetimage->fusemask) ) {
-    error("Failed to verify fuses");
+    error("Failed to verify fuses", PROG_B);
   } else {
     Serial.println("Fuses verified correctly!");
   }
   target_poweroff();			/* turn power off */
-  tone(PIEZOPIN, 4000, 200);
 }
 
 
 
-void error(char *string) { 
+void error(char *string, int pin1, int pin2, int pinoff) { 
   Serial.println(string); 
-  digitalWrite(LED_ERR, HIGH);  
-  while(1) {
-    tone(PIEZOPIN, 4000, 500);
-  }
+  led_on(pin1, pin2, pinoff);
+  while(1);
 }
 
 void start_pmode () {
@@ -192,10 +192,9 @@ void end_pmode () {
  */
 boolean target_poweron ()
 {
-  pinMode(LED_PROGMODE, OUTPUT);
-  digitalWrite(LED_PROGMODE, HIGH);
   digitalWrite(RESET, LOW);  // reset it right away.
   pinMode(RESET, OUTPUT);
+  digitalWrite(TARGET_POWER, HIGH);
   delay(100);
   Serial.print("Starting Program Mode");
   start_pmode();
@@ -206,11 +205,7 @@ boolean target_poweron ()
 boolean target_poweroff ()
 {
   end_pmode();
-  digitalWrite(LED_PROGMODE, LOW);
+  digitalWrite(TARGET_POWER, LOW);
   return true;
 }
-
-
-
-
 

@@ -128,10 +128,11 @@ inline static void enter_sleep(void) {
 ISR(INT0_vect) { }
 
 inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
-	switch(message->command) {
-	case COMMAND_STANDBY:
-		if(is_repeat) break;
-		if(state & (STATE_NORMAL | STATE_MENU)) {
+	if(message->command == COMMAND_STANDBY && !is_repeat) {
+		if(state & (STATE_SLEEPING | STATE_SLEEPY)) {
+			state = STATE_NORMAL;
+			PWM_ON();
+		} else {
 			state = STATE_SLEEPING;
 
 			// Disable the display
@@ -143,11 +144,13 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 			DDRA &= ~PORTA_ROWS;
 			PORTA &= ~PORTA_ROWS;
 			PORTB = 0;
-		} else {
-			state = STATE_NORMAL;
-			PWM_ON();
 		}
-		break;
+		return;
+	}
+
+	if(state & (STATE_SLEEPING | STATE_SLEEPY)) return;
+
+	switch(message->command) {
 	case COMMAND_UP:
 		keypresses |= KEY_UP;
 		break;

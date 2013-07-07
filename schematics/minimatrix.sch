@@ -4160,7 +4160,7 @@ Source: RS Component / Phycomp</description>
 <junction x="27.94" y="2.54"/>
 </segment>
 </net>
-<net name="C8" class="0">
+<net name="SCK" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="(UCSK)PB7"/>
 <wire x1="15.24" y1="81.28" x2="20.32" y2="81.28" width="0.1524" layer="91"/>
@@ -4174,7 +4174,7 @@ Source: RS Component / Phycomp</description>
 <wire x1="121.92" y1="121.92" x2="33.02" y2="121.92" width="0.1524" layer="91"/>
 </segment>
 </net>
-<net name="N$2" class="0">
+<net name="RESET" class="0">
 <segment>
 <pinref part="IC1" gate="G$1" pin="PA2(/RESET)"/>
 <wire x1="-22.86" y1="83.82" x2="-25.4" y2="83.82" width="0.1524" layer="91"/>
@@ -4183,7 +4183,7 @@ Source: RS Component / Phycomp</description>
 <wire x1="-25.4" y1="93.98" x2="-12.7" y2="93.98" width="0.1524" layer="91"/>
 </segment>
 </net>
-<net name="C6" class="0">
+<net name="MOSI" class="0">
 <segment>
 <pinref part="U$3" gate="G$1" pin="MOSI"/>
 <wire x1="12.7" y1="99.06" x2="22.86" y2="99.06" width="0.1524" layer="91"/>
@@ -4197,7 +4197,7 @@ Source: RS Component / Phycomp</description>
 <wire x1="101.6" y1="116.84" x2="38.1" y2="116.84" width="0.1524" layer="91"/>
 </segment>
 </net>
-<net name="C7" class="0">
+<net name="MISO" class="0">
 <segment>
 <pinref part="U$3" gate="G$1" pin="MISO"/>
 <wire x1="12.7" y1="101.6" x2="25.4" y2="101.6" width="0.1524" layer="91"/>
