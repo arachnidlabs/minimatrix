@@ -38,6 +38,13 @@ FUSES = {
 #define COMMAND_RIGHT	0x0010
 #define COMMAND_MENU	0x000B
 
+#define EXT_COMMAND_MASK 0x0700
+#define EXT_COMMAND_DATA_ADDR 0x0700
+#define EXT_COMMAND_DATA_WRITE 0x0600
+#define EXT_COMMAND_DISP_ADDR 0x0500
+#define EXT_COMMAND_DISP_WRITE 0x0400
+#define EXT_COMMAND_SET_STATE 0x0300
+
 #define KEY_STANDBY 0x01
 #define KEY_UP 		0x02
 #define KEY_DOWN 	0x04
@@ -49,6 +56,7 @@ FUSES = {
 #define STATE_MENU 0x02
 #define STATE_SLEEPY 0x04
 #define STATE_SLEEPING 0x08
+#define STATE_SLAVE 0x10
 
 typedef union {
 	uint16_t data;
@@ -104,6 +112,8 @@ static uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 static uint8_t keypresses = 0;
 static uint8_t mode_id = 0;
 static volatile uint8_t state = STATE_NORMAL;
+static uint8_t config_address = 0; // Address into config buffer for IR writes
+static uint8_t display_address = 0; // Address into display buffer for IR writes
 
 const char row_pins[] PROGMEM = {
 	_BV(PD6),
@@ -150,27 +160,51 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 
 	if(state & (STATE_SLEEPING | STATE_SLEEPY)) return;
 
-	switch(message->command) {
-	case COMMAND_UP:
-		keypresses |= KEY_UP;
-		break;
-	case COMMAND_DOWN:
-		keypresses |= KEY_DOWN;
-		break;
-	case COMMAND_LEFT:
-		keypresses |= KEY_LEFT;
-		break;
-	case COMMAND_RIGHT:
-		keypresses |= KEY_RIGHT;
-		break;
-	case COMMAND_MENU:
-		if(is_repeat) break;
-		if(state == STATE_NORMAL) {
-			state = STATE_MENU;
-		} else {
-			state = STATE_NORMAL;
+	if(message->field == 1) {
+		// Handle regular commands
+		switch(message->command) {
+		case COMMAND_UP:
+			keypresses |= KEY_UP;
+			break;
+		case COMMAND_DOWN:
+			keypresses |= KEY_DOWN;
+			break;
+		case COMMAND_LEFT:
+			keypresses |= KEY_LEFT;
+			break;
+		case COMMAND_RIGHT:
+			keypresses |= KEY_RIGHT;
+			break;
+		case COMMAND_MENU:
+			if(is_repeat) break;
+			if(state & (STATE_NORMAL | STATE_SLAVE)) {
+				state = STATE_MENU;
+			} else {
+				state = STATE_NORMAL;
+			}
+			break;
 		}
-		break;
+	} else {
+		// Handle extended commands
+		switch(message->command & EXT_COMMAND_MASK) {
+		case EXT_COMMAND_DATA_ADDR:
+			config_address = message->command & 0xFF;
+			break;
+		case EXT_COMMAND_DATA_WRITE:
+			eeprom_update_byte((uint8_t *)(&config + config_address), message->command & 0xFF);
+			config_address++;
+			break;
+		case EXT_COMMAND_DISP_ADDR:
+			display_address = message->command & 0x7;
+			break;
+		case EXT_COMMAND_DISP_WRITE:
+			display[display_address] = message->command & 0xFF;
+			display_address = (display_address + 1) & 0x07;
+			break;
+		case EXT_COMMAND_SET_STATE:
+			state = message->command & 0xFF;
+			break;
+		}
 	}
 }
 
@@ -299,9 +333,10 @@ static void draw_character(char ch) {
 }
 
 void animate(void) {
-	while(state == STATE_NORMAL) {
+	while(1) {
 		uint8_t *dataptr = stored_config.data;
 		for(int i = 0; i < config.mode.animate.framecount; i++) {
+			if(state != STATE_NORMAL) return;
 			for(int j = 0; j < 8; j++) {
 				display[j] = eeprom_read_byte(dataptr++);
 			}
@@ -338,7 +373,7 @@ void marquee(void) {
 	}
 }
 
-void edit(void) {
+void edit_marquee(void) {
 	uint8_t idx = 0;
 	char current;
 
@@ -404,6 +439,14 @@ void edit(void) {
 		}
 	}
 	write_dirty();
+}
+
+void edit(void) {
+	if(config.flags & IS_ANIMATION) {
+		state = STATE_MENU;
+	} else {
+		edit_marquee();
+	}
 }
 
 void play(void) {
@@ -489,6 +532,9 @@ void main(void) {
 			break;
 		case STATE_SLEEPY:
 			// Wait to enter STATE_SLEEPING or STATE_NORMAL
+			break;
+		case STATE_SLAVE:
+			// Just refresh the display
 			break;
 		}
 	}

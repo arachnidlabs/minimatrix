@@ -1,4 +1,3 @@
-#define VERBOSE 1
 #if ARDUINO >= 100
  #include "Arduino.h"
 #else

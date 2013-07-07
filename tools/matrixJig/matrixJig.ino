@@ -103,7 +103,7 @@ void loop (void) {
   uint16_t chipsize = pgm_read_word(&targetimage->chipsize);
         
   //Serial.println(chipsize, DEC);
-  while (pageaddr < chipsize) {
+  while (hextext != NULL) {
      byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer, TEST_B);
           
      boolean blankpage = true;
@@ -119,8 +119,8 @@ void loop (void) {
   }
   
   // Set fuses to 'final' state
-  if (! programFuses(targetimage->image_normfuses))
-    error("Programming Fuses fail", TEST_B);
+  //if (! programFuses(targetimage->image_normfuses))
+  //  error("Programming Fuses fail", TEST_B);
     
   end_pmode();
   led_on(PROG_A);

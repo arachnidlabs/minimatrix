@@ -183,6 +183,7 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
     
       // read one line!
     if (pgm_read_byte(hextext++) != ':') {
+      Serial.println(pgm_read_byte(hextext-1));
       error("No colon?", pin1, pin2, pinoff);
       break;
     }
@@ -213,7 +214,7 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
     //Serial.print("Record type "); Serial.println(b, HEX);
     if (b == 0x1) { 
      // end record!
-     break;
+     return NULL;
     } 
 #if VERBOSE
     Serial.print("\nLine address =  0x"); Serial.println(lineaddr, HEX);      
@@ -253,7 +254,7 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
     Serial.println();
     Serial.println(page_idx, DEC);
 #endif
-    //if (page_idx == pagesize) 
+    if (page_idx == pagesize) 
       break;
   }
 #if VERBOSE
@@ -293,7 +294,7 @@ boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize) {
   }
 
   // page addr is in bytes, byt we need to convert to words (/2)
-  pageaddr = (pageaddr/2) & 0xFFC0;
+  pageaddr = (pageaddr/2);
 
   uint16_t commitreply = spi_transaction(0x4C, (pageaddr >> 8) & 0xFF, pageaddr & 0xFF, 0);
 
@@ -319,7 +320,7 @@ boolean verifyImage (byte *hextext, int pin1, int pin2, int pinoff)  {
   byte b, cksum = 0;
 
   while (1) {
-    uint16_t lineaddr;
+    uint16_t lineaddr = 1;
     
       // read one line!
     if (pgm_read_byte(hextext++) != ':') {

@@ -179,6 +179,7 @@ extcoff: $(TARGET).elf
 
 .elf.hex:
 	$(OBJCOPY) -O $(FORMAT) -R .eeprom -R .fuse $< $@
+	srec_cat $@ -intel -o $@ -intel -address-length=2
 
 .elf.eep:
 	-$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" \
