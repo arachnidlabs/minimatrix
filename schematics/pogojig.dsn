@@ -1,0 +1,371 @@
+(PCB "/Users/nick/Google Drive/projects/minimatrix/schematics/pogojig.brd"
+  (parser
+    (string_quote ")
+    (space_in_quoted_tokens on)
+    (host_cad CadSoft)
+    (host_version 'EAGLE Version 6.4.0 Copyright (c) 1988-2013 CadSoft')
+  )
+  (resolution mm 10000)
+  (unit mm)
+  (structure
+    (layer "1#Top"  (type signal))
+    (layer "16#Bottom"  (type signal))
+    (boundary 
+      (rect pcb  0.000000 0.500000 51.000000 44.500000)
+    )
+    (boundary (path signal 0 49.800000 44.450000 1.000000 44.500000))
+    (boundary (path signal 0 1.000000 44.500000 0.000000 43.500000))
+    (boundary (path signal 0 0.000000 43.500000 0.000000 1.905000))
+    (boundary (path signal 0 0.000000 1.905000 1.500000 0.500000))
+    (boundary (path signal 0 1.500000 0.500000 50.000000 0.500000))
+    (boundary (path signal 0 50.000000 0.500000 51.000000 1.500000))
+    (boundary (path signal 0 51.000000 1.500000 51.000000 43.500000))
+    (boundary (path signal 0 51.000000 43.500000 50.000000 44.500000))
+    (boundary (path signal 0 50.000000 44.500000 49.800000 44.450000))
+    (via
+       "Round1$0.304797"
+    )
+    (rule (width 0.152400)(clearance 0.152400))
+    (keepout (circ signal 3.101600 9.795000 41.275000))
+    (keepout (circ signal 3.101600 39.005000 41.275000))
+    (keepout (circ signal 3.101600 39.005000 3.175000))
+    (keepout (circ signal 3.101600 9.795000 3.175000))
+    (control
+      (via_at_smd on)
+    )
+  )
+  (placement
+    (place_control (flip_style rotate_first))
+    (component "POGOPIN-1.02$nickparts" 
+      (place "BATT+P" 23.130000 7.467600 Front 0.000000)
+    )
+    (component "POGOPIN-1.02$nickparts" 
+      (place "BATT+P2" 25.670000 7.467600 Front 0.000000)
+    )
+    (component "POGOPIN-1.02$nickparts" 
+      (place "BATT-P" 24.400000 34.556700 Front 0.000000)
+    )
+    (component "0805$SparkFun-Passives" 
+      (place "C1" 38.370000 22.225000 Front 90.000000)
+    )
+    (component "0805$SparkFun-Passives" 
+      (place "C2" 10.430000 22.225000 Front 270.000000)
+    )
+    (component "SO16$74xx-eu" 
+      (place "IC1" 18.685000 22.225000 Front 0.000000)
+    )
+    (component "SO16$74xx-eu" 
+      (place "IC2" 30.115000 22.225000 Front 180.000000)
+    )
+    (component "POGOPIN-1.02$nickparts" 
+      (place "IRGNDP" 24.400000 36.830000 Front 0.000000)
+    )
+    (component "POGOPIN-1.02$nickparts" 
+      (place "IROUTP" 21.860000 36.830000 Front 0.000000)
+    )
+    (component "POGOPIN-1.02$nickparts" 
+      (place "IRVCCP" 26.940000 36.830000 Front 0.000000)
+    )
+    (component "SEGMENT-30MM-POGO$nickparts" 
+      (place "LED1" 24.400000 22.225000 Front 90.000000)
+    )
+    (component "0805$SparkFun-Passives" 
+      (place "R1" 45.355000 29.210000 Front 0.000000)
+    )
+    (component "0805$SparkFun-Passives" 
+      (place "R2" 45.355000 31.750000 Front 0.000000)
+    )
+    (component "0805$SparkFun-Passives" 
+      (place "R3" 45.355000 34.290000 Front 0.000000)
+    )
+    (component "0805$SparkFun-Passives" 
+      (place "R4" 5.350000 34.290000 Front 180.000000)
+    )
+    (component "0805$SparkFun-Passives" 
+      (place "R5" 5.350000 31.750000 Front 180.000000)
+    )
+    (component "BILED$nickparts" 
+      (place "U$1" 24.400000 4.445000 Front 180.000000)
+    )
+    (component "BILED$nickparts" 
+      (place "U$2" 17.415000 4.445000 Front 180.000000)
+    )
+    (component "TC2030-MCP-NL-POGO$nickparts" 
+      (place "U$3" 18.935000 35.560000 Back 0.000000)
+    )
+    (component "BILED$nickparts" 
+      (place "U$4" 31.385000 4.445000 Front 0.000000)
+    )
+    (component "DUEMILANOVE_VIAS$SparkFun-Boards" 
+      (place "U1" -1.000000 0.000000 Front 0.000000)
+    )
+  )
+  (library
+    (image "SO16$74xx-eu"
+      (pin "Rectangle1" "1" -4.445000 -3.073400)
+      (pin "Rectangle1" "2" -3.175000 -3.073400)
+      (pin "Rectangle1" "3" -1.905000 -3.073400)
+      (pin "Rectangle1" "4" -0.635000 -3.073400)
+      (pin "Rectangle1" "5" 0.635000 -3.073400)
+      (pin "Rectangle1" "6" 1.905000 -3.073400)
+      (pin "Rectangle1" "7" 3.175000 -3.073400)
+      (pin "Rectangle1" "8" 4.445000 -3.073400)
+      (pin "Rectangle1" "9" 4.445000 3.073400)
+      (pin "Rectangle1" "10" 3.175000 3.073400)
+      (pin "Rectangle1" "11" 1.905000 3.073400)
+      (pin "Rectangle1" "12" 0.635000 3.073400)
+      (pin "Rectangle1" "13" -0.635000 3.073400)
+      (pin "Rectangle1" "14" -1.905000 3.073400)
+      (pin "Rectangle1" "15" -3.175000 3.073400)
+      (pin "Rectangle1" "16" -4.445000 3.073400)
+    )
+    (image "DUEMILANOVE_VIAS$SparkFun-Boards"
+      (pin "Round2" "3.3V" 50.800000 13.970000)
+      (pin "Round2" "5V" 50.800000 16.510000)
+      (pin "Round2" "A0" 50.800000 29.210000)
+      (pin "Round2" "A1" 50.800000 31.750000)
+      (pin "Round2" "A2" 50.800000 34.290000)
+      (pin "Round2" "A3" 50.800000 36.830000)
+      (pin "Round2" "A4" 50.800000 39.370000)
+      (pin "Round2" "A5" 50.800000 41.910000)
+      (pin "Round2" "AREF" 2.540000 2.540000)
+      (pin "Round2" "D2" 2.540000 36.830000)
+      (pin "Round2" "D3" 2.540000 34.290000)
+      (pin "Round2" "D4" 2.540000 31.750000)
+      (pin "Round2" "D5" 2.540000 29.210000)
+      (pin "Round2" "D6" 2.540000 26.670000)
+      (pin "Round2" "D7" 2.540000 24.130000)
+      (pin "Round2" "D8" 2.540000 20.320000)
+      (pin "Round2" "D9" 2.540000 17.780000)
+      (pin "Round2" "D10" 2.540000 15.240000)
+      (pin "Round2" "D11" 2.540000 12.700000)
+      (pin "Round2" "D12" 2.540000 10.160000)
+      (pin "Round2" "D13" 2.540000 7.620000)
+      (pin "Round2" "GND@0" 50.800000 19.050000)
+      (pin "Round2" "GND@1" 50.800000 21.590000)
+      (pin "Round2" "GND@2" 2.540000 5.080000)
+      (pin "Round2" "RES" 50.800000 11.430000)
+      (pin "Round2" "RX" 2.540000 41.910000)
+      (pin "Round2" "TX" 2.540000 39.370000)
+      (pin "Round2" "VIN" 50.800000 24.130000)
+    )
+    (image "0805$SparkFun-Passives"
+      (pin "Rectangle2" "1" -0.900000 0.000000)
+      (pin "Rectangle2" "2" 0.900000 0.000000)
+    )
+    (image "BILED$nickparts"
+      (pin "Rectangle3" "A1" -1.750000 0.700000)
+      (pin "Rectangle3" "A2" -1.750000 -0.700000)
+      (pin "Rectangle3" "C1" 1.750000 0.700000)
+      (pin "Rectangle3" "C2" 1.750000 -0.700000)
+    )
+    (image "POGOPIN-1.02$nickparts"
+      (pin "Round3" "P$1" 0.000000 0.000000)
+    )
+    (image "SEGMENT-30MM-POGO$nickparts"
+      (outline(circ "1#Top" 1.270000 -18.430000 -12.000000))
+      (pin "Round4" "1" -8.890000 -12.000000)
+      (pin "Round4" "2" -6.350000 -12.000000)
+      (pin "Round4" "3" -3.810000 -12.000000)
+      (pin "Round4" "4" -1.270000 -12.000000)
+      (pin "Round4" "5" 1.270000 -12.000000)
+      (pin "Round4" "6" 3.810000 -12.000000)
+      (pin "Round4" "7" 6.350000 -12.000000)
+      (pin "Round4" "8" 8.890000 -12.000000)
+      (pin "Round5" "9" 8.890000 12.000000)
+      (pin "Round5" "10" 6.350000 12.000000)
+      (pin "Round5" "11" 3.810000 12.000000)
+      (pin "Round5" "12" 1.270000 12.000000)
+      (pin "Round5" "13" -1.270000 12.000000)
+      (pin "Round5" "14" -3.810000 12.000000)
+      (pin "Round5" "15" -6.350000 12.000000)
+      (pin "Round5" "16" -8.890000 12.000000)
+    )
+    (image "TC2030-MCP-NL-POGO$nickparts"
+    (outline (path signal 0 1.270000 -0.241300 1.663700 -0.241300))
+    (outline (path signal 0 1.663700 -0.241300 1.663700 -0.635000))
+    (outline (path signal 0 1.663700 -0.635000 2.146300 -0.635000))
+    (outline (path signal 0 2.146300 -0.635000 2.146300 -0.241300))
+    (outline (path signal 0 2.146300 -0.241300 2.933700 -0.241300))
+    (outline (path signal 0 2.933700 -0.241300 2.933700 -0.635000))
+    (outline (path signal 0 2.933700 -0.635000 3.416300 -0.635000))
+    (outline (path signal 0 3.416300 -0.635000 3.416300 -0.241300))
+    (outline (path signal 0 3.416300 -0.241300 3.810000 -0.241300))
+    (outline (path signal 0 3.810000 -0.241300 3.810000 0.241300))
+    (outline (path signal 0 3.810000 0.241300 3.416300 0.241300))
+    (outline (path signal 0 3.416300 0.241300 3.416300 0.635000))
+    (outline (path signal 0 3.416300 0.635000 2.933700 0.635000))
+    (outline (path signal 0 2.933700 0.635000 2.933700 0.241300))
+    (outline (path signal 0 2.933700 0.241300 2.146300 0.241300))
+    (outline (path signal 0 2.146300 0.241300 2.146300 0.635000))
+    (outline (path signal 0 2.146300 0.635000 1.663700 0.635000))
+    (outline (path signal 0 1.663700 0.635000 1.663700 0.241300))
+    (outline (path signal 0 1.663700 0.241300 1.270000 0.241300))
+    (outline (path signal 0 1.270000 0.241300 1.270000 -0.241300))
+      (pin "Round6" "P$1" 1.270000 -0.635000)
+      (pin "Round6" "P$2" 1.270000 0.635000)
+      (pin "Round6" "P$3" 2.540000 -0.635000)
+      (pin "Round6" "P$4" 2.540000 0.635000)
+      (pin "Round6" "P$5" 3.810000 -0.635000)
+      (pin "Round6" "P$6" 3.810000 0.635000)
+    )
+    (padstack "ViaDefault$0.304800"
+      (shape (circle signal 0.609600 0 0))
+    )
+    (padstack "Round1$0.304797" 
+      (shape (circle "1#Top" 0.609597 0 0))
+      (shape (circle "16#Bottom" 0.609597 0 0))
+      (attach off)
+    )
+    (padstack "Rectangle1" 
+      (shape (rect "1#Top" -0.330200 -1.016000 0.330200 1.016000))
+      (attach off)
+    )
+    (padstack "Round2" 
+      (shape (circle signal 1.879600 0 0))
+      (attach off)
+    )
+    (padstack "Rectangle2" 
+      (shape (rect "1#Top" -0.400000 -0.600000 0.400000 0.600000))
+      (attach off)
+    )
+    (padstack "Rectangle3" 
+      (shape (rect "1#Top" -0.750000 -0.500000 0.750000 0.500000))
+      (attach off)
+    )
+    (padstack "Round3" 
+      (shape (circle signal 1.530000 0 0))
+      (attach off)
+    )
+    (padstack "Round4" 
+      (shape (circle signal 1.676400 0 0))
+      (attach off)
+    )
+    (padstack "Round5" 
+      (shape (circle signal 1.676400 0 0))
+      (attach off)
+    )
+    (padstack "Round6" 
+      (shape (circle signal 1.100000 0 0))
+      (attach off)
+    )
+  )
+  (network
+    (net "GND"
+      (pins  "IC1"-"8" "IC2"-"8" "U1"-"GND@2" "U1"-"GND@1" "U1"-"GND@0" "IC1"-"15" "IC2"-"15" "U$3"-"P$6" "R4"-"1" "R5"-"1" "C2"-"2" "C1"-"2")
+    )
+    (net "N$1"
+      (pins  "IC2"-"11" "LED1"-"1")
+    )
+    (net "N$2"
+      (pins  "LED1"-"2" "IC2"-"12")
+    )
+    (net "N$3"
+      (pins  "LED1"-"3" "IC2"-"13")
+    )
+    (net "N$4"
+      (pins  "LED1"-"4" "IC2"-"14")
+    )
+    (net "N$5"
+      (pins  "LED1"-"5" "IC2"-"3")
+    )
+    (net "N$6"
+      (pins  "LED1"-"6" "IC2"-"4")
+    )
+    (net "N$7"
+      (pins  "LED1"-"12" "IC1"-"14")
+    )
+    (net "N$8"
+      (pins  "LED1"-"7" "IC2"-"5")
+    )
+    (net "N$9"
+      (pins  "LED1"-"8" "IC2"-"6")
+    )
+    (net "N$10"
+      (pins  "LED1"-"9" "IC1"-"11")
+    )
+    (net "N$11"
+      (pins  "LED1"-"10" "IC1"-"12")
+    )
+    (net "N$12"
+      (pins  "LED1"-"11" "IC1"-"13")
+    )
+    (net "N$13"
+      (pins  "LED1"-"13" "IC1"-"3")
+    )
+    (net "N$14"
+      (pins  "LED1"-"14" "IC1"-"4")
+    )
+    (net "N$15"
+      (pins  "LED1"-"15" "IC1"-"5")
+    )
+    (net "N$16"
+      (pins  "LED1"-"16" "IC1"-"6")
+    )
+    (net "N$17"
+      (pins  "IC1"-"9" "IC2"-"10")
+    )
+    (net "N$18"
+      (pins  "U1"-"A5" "IRGNDP"-"P$1")
+    )
+    (net "N$19"
+      (pins  "BATT+P"-"P$1" "BATT+P2"-"P$1" "U1"-"D4" "R5"-"2")
+    )
+    (net "N$20"
+      (pins  "BATT-P"-"P$1" "U1"-"D2")
+    )
+    (net "N$21"
+      (pins  "U1"-"D3" "IRVCCP"-"P$1" "R4"-"2")
+    )
+    (net "N$22"
+      (pins  "IROUTP"-"P$1" "U1"-"D5")
+    )
+    (net "N$23"
+      (pins  "U1"-"A2" "R3"-"2")
+    )
+    (net "N$24"
+      (pins  "U1"-"A1" "R2"-"2")
+    )
+    (net "N$25"
+      (pins  "U1"-"A0" "R1"-"2")
+    )
+    (net "N$26"
+      (pins  "R3"-"1" "U$2"-"A2" "U$2"-"C1" "U$4"-"C1" "U$4"-"A2")
+    )
+    (net "N$27"
+      (pins  "U$4"-"A1" "U$1"-"A1" "U$1"-"C2" "R1"-"1" "U$4"-"C2")
+    )
+    (net "N$28"
+      (pins  "R2"-"1" "U$1"-"C1" "U$1"-"A2" "U$2"-"C2" "U$2"-"A1")
+    )
+    (net "SMISO"
+      (pins  "U$3"-"P$1" "U1"-"D12")
+    )
+    (net "SMOSI"
+      (pins  "U$3"-"P$4" "U1"-"D11")
+    )
+    (net "SRCLK"
+      (pins  "U1"-"D7" "IC2"-"2" "IC1"-"2")
+    )
+    (net "SRDATA"
+      (pins  "U1"-"D8" "IC2"-"9")
+    )
+    (net "SRLATCH"
+      (pins  "IC2"-"1" "IC1"-"1" "U1"-"D6")
+    )
+    (net "SRST"
+      (pins  "U$3"-"P$5" "U1"-"D10")
+    )
+    (net "SSCK"
+      (pins  "U$3"-"P$3" "U1"-"D13")
+    )
+    (net "SVCC"
+      (pins  "U$3"-"P$2" "U1"-"D9")
+    )
+    (net "VCC"
+      (pins  "IC1"-"16" "IC2"-"16" "U1"-"5V" "C2"-"1" "C1"-"1")
+    )
+  )
+  (wiring
+  )
+)
