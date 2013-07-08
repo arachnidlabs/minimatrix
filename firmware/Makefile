@@ -132,11 +132,13 @@ ALL_ASFLAGS = -mmcu=$(MCU) -I. -x assembler-with-cpp $(ASFLAGS)
 # Default target.
 all: build
 
-build: elf hex eep size
+build: elf hex eep bin eebin size
 
 elf: $(TARGET).elf
 hex: $(TARGET).hex
+bin: $(TARGET).bin
 eep: $(TARGET).eep
+eebin: $(TARGET).eebin
 lss: $(TARGET).lss 
 sym: $(TARGET).sym
 
@@ -175,15 +177,21 @@ extcoff: $(TARGET).elf
 	$(COFFCONVERT) -O coff-ext-avr $(TARGET).elf $(TARGET).cof
 
 
-.SUFFIXES: .elf .hex .eep .lss .sym
+.SUFFIXES: .elf .hex .eep .lss .sym .bin .eebin
 
 .elf.hex:
 	$(OBJCOPY) -O $(FORMAT) -R .eeprom -R .fuse $< $@
-	srec_cat $@ -intel -o $@ -intel -address-length=2
 
 .elf.eep:
 	-$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" \
 	--change-section-lma .eeprom=0 -O $(FORMAT) $< $@
+
+.elf.bin:
+	$(OBJCOPY) -O binary -R .eeprom -R .fuse $< $@
+
+.elf.eebin:
+	-$(OBJCOPY) -j .eeprom --set-section-flags=.eeprom="alloc,load" \
+	--change-section-lma .eeprom=0 -O binary $< $@
 
 # Create extended listing file from ELF output file.
 .elf.lss:
@@ -218,8 +226,8 @@ $(TARGET).elf: $(OBJ)
 
 # Target: clean project.
 clean:
-	$(REMOVE) $(TARGET).hex $(TARGET).eep $(TARGET).cof $(TARGET).elf \
-	$(TARGET).map $(TARGET).sym $(TARGET).lss \
+	$(REMOVE) $(TARGET).hex $(TARGET).bin $(TARGET).eep $(TARGET).eebin \
+	$(TARGET).cof $(TARGET).elf $(TARGET).map $(TARGET).sym $(TARGET).lss \
 	$(OBJ) $(LST) $(SRC:.c=.s) $(SRC:.c=.d)
 
 depend:

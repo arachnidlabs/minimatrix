@@ -221,3 +221,5 @@ pip-log.txt
 *.o
 *.eep
 *.elf
+*.bin
+*.eebin
