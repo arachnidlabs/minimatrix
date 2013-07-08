@@ -223,5 +223,5 @@ pip-log.txt
 *.elf
 *.bin
 *.eebin
-firmware/main-data.c
-firmware/main-data.h
+*-data.c
+*-data.h

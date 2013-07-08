@@ -7,8 +7,8 @@
 
 MCU = attiny4313
 FORMAT = ihex
-TARGET = main
-SRC = $(TARGET).c glcdfont.c glyphs.c
+TARGET = test
+SRC = $(TARGET).c
 ASRC = 
 OPT = s
 
@@ -224,7 +224,7 @@ $(TARGET).elf: $(OBJ)
 	$(CC) -c $(ALL_ASFLAGS) $< -o $@
 
 %-data.c: %.bin %.eebin
-	./imagebuilder.py $^ $@
+	../imagebuilder.py $^ $@
 
 # Target: clean project.
 clean:
