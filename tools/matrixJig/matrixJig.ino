@@ -36,12 +36,20 @@ byte pageBuffer[64];		       /* One page of flash */
 #define RESET 10
 #define TARGET_POWER 9
 
+#define PIN_BATT_NEG 2
+#define PIN_BATT_POS 4
+#define PIN_IRVCC 3
+#define PIN_IROUT 5
+#define PIN_SRLATCH 6
+#define PIN_SRCLK 7
+#define PIN_SRDATA 8
+
 #define ISP_A A2, A1, A3
 #define ISP_B A1, A2, A3
-#define TEST_A A0, A1, A2
-#define TEST_B A1, A0, A2
-#define PROG_A A0, A2, A1
-#define PROG_B A2, A0, A1
+#define TEST_A A1, A0, A2
+#define TEST_B A0, A1, A2
+#define PROG_A A2, A0, A1
+#define PROG_B A0, A2, A1
 
 void set_prescaler(int prescaler) {
   cli();
@@ -63,15 +71,20 @@ void setup () {
 }
 
 void loop (void) {
+  digitalWrite(TARGET_POWER, HIGH);			/* Turn on target power */
+
   Serial.println("\nType 'G' or hit BUTTON for next chip");
   while (1) {
     if  (Serial.read() == 'G')
       break;  
+    if(digitalRead(PIN_BATT_POS))
+      break;
   }
+  delay(1000);
   
   led_on(ISP_A);
   set_prescaler(0x1);
-  target_poweron();			/* Turn on target power */
+  target_poweron();
 
   uint16_t signature;
   image_t *targetimage;
@@ -138,9 +151,76 @@ void loop (void) {
   } else {
     Serial.println("Fuses verified correctly!");
   }
+  
+  while(digitalRead(PIN_BATT_POS));
+ 
   target_poweroff();			/* turn power off */
+  leds_off(ISP_A);
+  delay(1000);
 }
 
+void program_chip(image_t *targetimage) {
+  uint16_t signature;
+  image_t *targetimage;
+
+  set_prescaler(0x1);
+        
+  if (! (signature = readSignature()))	// Figure out what kind of CPU
+    error("Signature fail", ISP_B);
+
+  if(signature != targetimage->image_chipsig)
+    error("Signature does not match");
+
+  eraseChip();
+
+  if (! programFuses(targetimage->image_progfuses)) 	// get fuses ready to program
+    error("Programming Fuses fail", ISP_B);
+    
+  
+  if (! verifyFuses(targetimage->image_progfuses, targetimage->fusemask) )
+    error("Failed to verify fuses", ISP_B);
+
+  set_prescaler(0x0);
+
+  end_pmode();
+  start_pmode();
+
+  byte *hextext = targetimage->image_hexcode;  
+  uint16_t pageaddr = 0;
+  uint8_t pagesize = pgm_read_byte(&targetimage->image_pagesize);
+  uint16_t chipsize = pgm_read_word(&targetimage->chipsize);
+        
+  while (hextext != NULL) {
+     byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer, TEST_B);
+          
+     boolean blankpage = true;
+     for (uint8_t i=0; i<pagesize; i++) {
+       if (pageBuffer[i] != 0xFF) blankpage = false;
+     }          
+     if (! blankpage) {
+       if (! flashPage(pageBuffer, pageaddr, pagesize))	
+	 error("Flash programming failed", TEST_B);
+     }
+     hextext = hextextpos;
+     pageaddr += pagesize;
+  }
+  
+  end_pmode();
+  start_pmode();
+  
+  Serial.println("\nVerifing flash...");
+  if (! verifyImage(targetimage->image_hexcode, PROG_B) ) {
+    error("Failed to verify chip", PROG_B);
+  } else {
+    Serial.println("\tFlash verified correctly!");
+  }
+
+  if (! verifyFuses(targetimage->image_normfuses, targetimage->fusemask) ) {
+    error("Failed to verify fuses", PROG_B);
+  } else {
+    Serial.println("Fuses verified correctly!");
+  }
+}
 
 
 void error(char *string, int pin1, int pin2, int pinoff) { 
@@ -194,8 +274,8 @@ boolean target_poweron ()
 {
   digitalWrite(RESET, LOW);  // reset it right away.
   pinMode(RESET, OUTPUT);
-  digitalWrite(TARGET_POWER, HIGH);
-  delay(100);
+//  digitalWrite(TARGET_POWER, HIGH);
+//  delay(100);
   Serial.print("Starting Program Mode");
   start_pmode();
   Serial.println(" [OK]");

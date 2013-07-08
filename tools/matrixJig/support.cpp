@@ -60,3 +60,12 @@ void led_on(int pin1, int pin2, int pinoff) {
   digitalWrite(pinoff, LOW);
 }
 
+void leds_off(int pin1, int pin2, int pin3) {
+  digitalWrite(pin1, LOW);
+  digitalWrite(pin2, LOW);
+  digitalWrite(pin3, LOW);
+  pinMode(pin1, INPUT);
+  pinMode(pin2, INPUT);
+  pinMode(pin3, INPUT);
+}
+
