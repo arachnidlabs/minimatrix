@@ -161,7 +161,6 @@ void loop (void) {
 
 void program_chip(image_t *targetimage) {
   uint16_t signature;
-  image_t *targetimage;
 
   set_prescaler(0x1);
         
@@ -169,7 +168,7 @@ void program_chip(image_t *targetimage) {
     error("Signature fail", ISP_B);
 
   if(signature != targetimage->image_chipsig)
-    error("Signature does not match");
+    error("Signature does not match", ISP_B);
 
   eraseChip();
 
