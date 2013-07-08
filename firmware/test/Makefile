@@ -132,7 +132,7 @@ ALL_ASFLAGS = -mmcu=$(MCU) -I. -x assembler-with-cpp $(ASFLAGS)
 # Default target.
 all: build
 
-build: elf hex eep bin eebin size
+build: elf hex eep bin eebin size carray
 
 elf: $(TARGET).elf
 hex: $(TARGET).hex
@@ -141,7 +141,7 @@ eep: $(TARGET).eep
 eebin: $(TARGET).eebin
 lss: $(TARGET).lss 
 sym: $(TARGET).sym
-carray: $(TARGET)-data.c
+carray: $(TARGET)_data.c
 
 size: $(TARGET).elf
 	avr-size $(TARGET).elf
@@ -223,7 +223,7 @@ $(TARGET).elf: $(OBJ)
 .S.o:
 	$(CC) -c $(ALL_ASFLAGS) $< -o $@
 
-%-data.c: %.bin %.eebin
+%_data.c: %.bin %.eebin
 	../imagebuilder.py $^ $@
 
 # Target: clean project.

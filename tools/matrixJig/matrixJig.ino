@@ -18,7 +18,7 @@
 // 13: SCK
 // ----------------------------------------------------------------------
 
-
+#include <avr/pgmspace.h>
 #include "optiLoader.h"
 #include "SPI.h"
 
@@ -90,19 +90,19 @@ void loop (void) {
   image_t *targetimage;
         
   if (! (signature = readSignature()))	// Figure out what kind of CPU
-    error("Signature fail", ISP_B);
+    error("Signature fail");
   
   if (! (targetimage = findImage(signature)))	// look for an image
-    error("Image fail", ISP_B);
+    error("Image fail");
   
   eraseChip();
 
   if (! programFuses(targetimage->image_progfuses)) 	// get fuses ready to program
-    error("Programming Fuses fail", ISP_B);
+    error("Programming Fuses fail");
     
   
   if (! verifyFuses(targetimage->image_progfuses, targetimage->fusemask) )
-    error("Failed to verify fuses", ISP_B);
+    error("Failed to verify fuses");
 
   set_prescaler(0x0);
 
@@ -110,48 +110,24 @@ void loop (void) {
   led_on(TEST_A);
   start_pmode();
 
-  byte *hextext = targetimage->image_hexcode;  
+  const unsigned char *imagedata = targetimage->image_data;  
   uint16_t pageaddr = 0;
   uint8_t pagesize = pgm_read_byte(&targetimage->image_pagesize);
   uint16_t chipsize = pgm_read_word(&targetimage->chipsize);
-        
-  //Serial.println(chipsize, DEC);
-  while (hextext != NULL) {
-     byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer, TEST_B);
-          
-     boolean blankpage = true;
-     for (uint8_t i=0; i<pagesize; i++) {
-       if (pageBuffer[i] != 0xFF) blankpage = false;
-     }          
-     if (! blankpage) {
-       if (! flashPage(pageBuffer, pageaddr, pagesize))	
-	 error("Flash programming failed", TEST_B);
-     }
-     hextext = hextextpos;
-     pageaddr += pagesize;
-  }
   
-  // Set fuses to 'final' state
-  //if (! programFuses(targetimage->image_normfuses))
-  //  error("Programming Fuses fail", TEST_B);
-    
+  programImage(imagedata, pagesize, chipsize);
+  
   end_pmode();
   led_on(PROG_A);
   start_pmode();
   
   Serial.println("\nVerifing flash...");
-  if (! verifyImage(targetimage->image_hexcode, PROG_B) ) {
-    error("Failed to verify chip", PROG_B);
+  if (! verifyImage(targetimage->image_data, chipsize) ) {
+    error("Failed to verify chip");
   } else {
     Serial.println("\tFlash verified correctly!");
   }
 
-  if (! verifyFuses(targetimage->image_normfuses, targetimage->fusemask) ) {
-    error("Failed to verify fuses", PROG_B);
-  } else {
-    Serial.println("Fuses verified correctly!");
-  }
-  
   while(digitalRead(PIN_BATT_POS));
  
   target_poweroff();			/* turn power off */
@@ -159,73 +135,8 @@ void loop (void) {
   delay(1000);
 }
 
-void program_chip(image_t *targetimage) {
-  uint16_t signature;
-
-  set_prescaler(0x1);
-        
-  if (! (signature = readSignature()))	// Figure out what kind of CPU
-    error("Signature fail", ISP_B);
-
-  if(signature != targetimage->image_chipsig)
-    error("Signature does not match", ISP_B);
-
-  eraseChip();
-
-  if (! programFuses(targetimage->image_progfuses)) 	// get fuses ready to program
-    error("Programming Fuses fail", ISP_B);
-    
-  
-  if (! verifyFuses(targetimage->image_progfuses, targetimage->fusemask) )
-    error("Failed to verify fuses", ISP_B);
-
-  set_prescaler(0x0);
-
-  end_pmode();
-  start_pmode();
-
-  byte *hextext = targetimage->image_hexcode;  
-  uint16_t pageaddr = 0;
-  uint8_t pagesize = pgm_read_byte(&targetimage->image_pagesize);
-  uint16_t chipsize = pgm_read_word(&targetimage->chipsize);
-        
-  while (hextext != NULL) {
-     byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer, TEST_B);
-          
-     boolean blankpage = true;
-     for (uint8_t i=0; i<pagesize; i++) {
-       if (pageBuffer[i] != 0xFF) blankpage = false;
-     }          
-     if (! blankpage) {
-       if (! flashPage(pageBuffer, pageaddr, pagesize))	
-	 error("Flash programming failed", TEST_B);
-     }
-     hextext = hextextpos;
-     pageaddr += pagesize;
-  }
-  
-  end_pmode();
-  start_pmode();
-  
-  Serial.println("\nVerifing flash...");
-  if (! verifyImage(targetimage->image_hexcode, PROG_B) ) {
-    error("Failed to verify chip", PROG_B);
-  } else {
-    Serial.println("\tFlash verified correctly!");
-  }
-
-  if (! verifyFuses(targetimage->image_normfuses, targetimage->fusemask) ) {
-    error("Failed to verify fuses", PROG_B);
-  } else {
-    Serial.println("Fuses verified correctly!");
-  }
-}
-
-
-void error(char *string, int pin1, int pin2, int pinoff) { 
+void error(char *string) { 
   Serial.println(string); 
-  led_on(pin1, pin2, pinoff);
-  while(1);
 }
 
 void start_pmode () {

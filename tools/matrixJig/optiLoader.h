@@ -27,11 +27,10 @@ typedef struct image {
     char image_chipname[12];	       /* ie "atmega168" */
     uint16_t image_chipsig;	       /* Low two bytes of signature */
     byte image_progfuses[5];	       /* fuses to set during programming */
-    byte image_normfuses[5];	       /* fuses to set after programming */
     byte fusemask[4];
     uint16_t chipsize;
     byte image_pagesize;	       /* page size for flash programming */
-    byte image_hexcode[19000];	       /* intel hex format image (text) */
+    const unsigned char *image_data;	               /* binary image data */
 } image_t;
 
 typedef struct alias {
@@ -57,12 +56,13 @@ image_t *findImage (uint16_t signature);
 uint16_t readSignature (void);
 boolean programFuses (const byte *fuses);
 void eraseChip(void);
-boolean verifyImage (byte *hextext, int pin1, int pin2, int pinoff);
+boolean verifyImage (const unsigned char *hextext, int imagesize);
 void busyWait(void);
 boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize);
+boolean programImage(const unsigned char*, int, int);
 byte hexton (byte h);
-byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page, int pin1, int pin2, int pinoff);
+byte *readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page);
 boolean verifyFuses (const byte *fuses, const byte *fusemask);
-void error(char *string, int pin1, int pin2, int pinoff);
+void error(char *string);
 
 #endif
