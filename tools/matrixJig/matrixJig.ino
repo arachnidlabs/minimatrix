@@ -95,11 +95,12 @@ void setup () {
 }
 
 boolean do_fuses(image_t *image) {
+  delay(10);
   if (! programFuses(image->image_progfuses)) {
     error("Failed to program fuses");
     return false;
   }
-  
+  delay(10);
   if (! verifyFuses(image->image_progfuses, image->fusemask) ) {
     error("Failed to verify fuses");
     return false;

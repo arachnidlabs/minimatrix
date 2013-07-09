@@ -84,6 +84,7 @@ boolean programFuses (const byte *fuses)
     Serial.print(" -> ");
     Serial.print(spi_transaction(0xAC, 0xE0, 0x00, f), HEX);
   }
+  delay(10);
   f = pgm_read_byte(&fuses[FUSE_LOW]);
   if (f) {
     Serial.print("  Set Low Fuse to: ");
@@ -91,6 +92,7 @@ boolean programFuses (const byte *fuses)
     Serial.print(" -> ");
     Serial.print(spi_transaction(0xAC, 0xA0, 0x00, f), HEX);
   }
+  delay(10);
   f = pgm_read_byte(&fuses[FUSE_HIGH]);
   if (f) {
     Serial.print("  Set High Fuse to: ");
@@ -98,6 +100,7 @@ boolean programFuses (const byte *fuses)
     Serial.print(" -> ");
     Serial.print(spi_transaction(0xAC, 0xA8, 0x00, f), HEX);
   }
+  delay(10);
   f = pgm_read_byte(&fuses[FUSE_EXT]);
   if (f) {
     Serial.print("  Set Ext Fuse to: ");
