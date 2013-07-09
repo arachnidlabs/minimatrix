@@ -40,11 +40,11 @@ uint16_t readSignature (void)
 /*
  * findImage
  *
- * given 'signature' loaded with the relevant part of the device signature,
+ * given 'name' containing the image name,
  * search the hex images that we have programmed in flash, looking for one
  * that matches.
  */
-image_t *findImage (uint16_t signature)
+image_t *findImage (char *name)
 {
   image_t *ip;
   Serial.println("Searching for image...");
@@ -52,7 +52,7 @@ image_t *findImage (uint16_t signature)
   for (byte i=0; i < NUMIMAGES; i++) {
     ip = images[i];
 
-    if (ip && (pgm_read_word(&ip->image_chipsig) == signature)) {
+    if(ip && strcmp_P(name, (const prog_char*)&ip->image_name) == 0) {
 	Serial.print("  Found \"");
 	flashprint(&ip->image_name[0]);
 	Serial.print("\" for ");
@@ -204,7 +204,7 @@ boolean programImage(const unsigned char *imagedata, int pagesize, int chipsize)
   for(int pos = 0; pos < chipsize; pos += pagesize) {
      Serial.print("Flashing starting at ");
      Serial.println(pos, HEX);
-     memcpy_P(pageBuffer, imagedata + pos, pagesize);
+     memcpy_P(pageBuffer, &imagedata[pos], pagesize);
           
      boolean blankpage = true;
      for (uint8_t i=0; i<pagesize; i++) {
@@ -232,7 +232,7 @@ boolean verifyImage (const unsigned char *image, int imagesize)  {
   byte b;
 
   for(int i = 0; i < imagesize; i++) {
-    b = pgm_read_byte(i);
+    b = pgm_read_byte(&image[i]);
 
     // verify this byte!
     if (i % 2) {

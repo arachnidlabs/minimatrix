@@ -17,7 +17,6 @@
 // 12: MISO
 // 13: SCK
 // ----------------------------------------------------------------------
-
 #include <avr/pgmspace.h>
 #include "optiLoader.h"
 #include "SPI.h"
@@ -44,17 +43,35 @@ byte pageBuffer[64];		       /* One page of flash */
 #define PIN_SRCLK 7
 #define PIN_SRDATA 8
 
-#define ISP_A A2, A1, A3
-#define ISP_B A1, A2, A3
-#define TEST_A A1, A0, A2
-#define TEST_B A0, A1, A2
-#define PROG_A A2, A0, A1
-#define PROG_B A0, A2, A1
+#define ISP_OK A2, A1, A0
+#define ISP_BAD A1, A2, A0
+#define TEST_OK A1, A0, A2
+#define TEST_BAD A0, A1, A2
+#define PROG_OK A2, A0, A1
+#define PROG_BAD A0, A2, A1
 
-void set_prescaler(int prescaler) {
+void slow_down(boolean enable) {
+  static uint16_t saved_ubrr;
+  static boolean slow = false;
+
+  // If we're already in the mode we're asking for, do nothing.  
+  if(enable == slow) return;
+  
   cli();
-  CLKPR = _BV(CLKPCE);
-  CLKPR = prescaler;
+  if(enable) {
+    CLKPR = _BV(CLKPCE);
+    CLKPR = 0x1;
+    saved_ubrr = (UBRR0H << 8) | UBRR0L;
+    UBRR0H = saved_ubrr >> 9;
+    UBRR0L = (saved_ubrr >> 1) & 0xFF;
+    slow = true;
+  } else {
+    CLKPR = _BV(CLKPCE);
+    CLKPR = 0x0;
+    UBRR0H = saved_ubrr >> 8;
+    UBRR0L = saved_ubrr & 0xFF;
+    slow = false;
+  }
   sei();
 }
 
@@ -63,11 +80,156 @@ void setup () {
   Serial.println("\nMatrixjig Bootstrap programmer (originally OptiLoader Bill Westfield (WestfW))");
 
   pinMode(TARGET_POWER, OUTPUT);
+  pinMode(PIN_SRLATCH, OUTPUT);
+  pinMode(PIN_SRCLK, OUTPUT);
+  pinMode(PIN_SRDATA, INPUT);
+  pinMode(PIN_IROUT, OUTPUT);
+  digitalWrite(PIN_SRLATCH, HIGH);
 
-  pulse(ISP_A, 2);
-  pulse(TEST_A, 2);
-  pulse(PROG_A, 2);
+  pulse(ISP_OK, 2);
+  pulse(TEST_OK, 2);
+  pulse(PROG_OK, 2);
+  pulse(ISP_BAD, 2);
+  pulse(TEST_BAD, 2);
+  pulse(PROG_BAD, 2);  
+}
+
+boolean do_fuses(image_t *image) {
+  if (! programFuses(image->image_progfuses)) {
+    error("Failed to program fuses");
+    return false;
+  }
   
+  if (! verifyFuses(image->image_progfuses, image->fusemask) ) {
+    error("Failed to verify fuses");
+    return false;
+  }
+
+  return true;
+}
+
+boolean do_program(image_t *image) {
+  const unsigned char *imagedata = (const unsigned char*)pgm_read_word(&image->image_data);
+  uint8_t pagesize = pgm_read_byte(&image->image_pagesize);
+  uint16_t chipsize = pgm_read_word(&image->chipsize);
+  
+  programImage(imagedata, pagesize, chipsize);
+  
+  end_pmode();
+  start_pmode();
+  
+  Serial.println("\nVerifing flash...");
+  if (! verifyImage(imagedata, chipsize) ) {
+    error("Failed to verify chip");
+    return false;
+  } else {
+    Serial.println("\tFlash verified correctly!");
+  }
+  return true;
+}
+
+boolean load_test_program() {
+  image_t *testimage;
+  if (! (testimage = findImage("test.hex"))) {
+    error("Failed to load test image");
+    return false;
+  }
+  
+  slow_down(true);
+  target_poweron();
+
+  uint16_t signature = pgm_read_word(&testimage->image_chipsig);
+        
+  if (signature != readSignature()) {
+    error("Invalid signature");
+    return false;
+  }
+  
+  eraseChip();
+
+  if(!do_fuses(testimage))
+    return false;
+
+  slow_down(false);
+
+  end_pmode();
+  start_pmode();
+  
+  if(!do_program(testimage))
+    return false;
+
+  end_pmode();
+    
+  return true;
+}
+
+boolean run_tests() {
+  delay(200);
+  for(int i = 0; i < 16; i++) {
+    digitalWrite(PIN_IROUT, HIGH);
+    digitalWrite(PIN_SRLATCH, LOW);
+    delay(1);
+    digitalWrite(PIN_SRLATCH, HIGH);
+    uint16_t incoming = digitalRead(PIN_SRDATA);
+    incoming |= shiftIn(PIN_SRDATA, PIN_SRCLK, MSBFIRST) << 8;
+    incoming |= shiftIn(PIN_SRDATA, PIN_SRCLK, MSBFIRST);
+    Serial.println(incoming, HEX);
+    if(incoming != (1 << i)) {
+      Serial.print("Expected 0x");
+      Serial.print(1 << i, HEX);
+      Serial.print(" but got 0x");
+      Serial.println(incoming);
+      return false;
+    }
+
+    digitalWrite(PIN_IROUT, LOW);
+    delay(1);
+  }
+  return true;
+}
+
+boolean load_main_program() {
+  image_t *mainimage;
+  if(!(mainimage = findImage("minimatrix.hex"))) {
+    error("Failed to load main image");
+    return false;
+  }
+  
+  start_pmode();
+  eraseChip();
+  end_pmode();
+  
+  start_pmode();
+  if(!do_program(mainimage))
+    return false;
+  end_pmode();
+  
+  return true;
+}
+
+boolean program_and_test() {
+  if(load_test_program()) {
+    led_on(ISP_OK);
+  } else {
+    led_on(ISP_BAD);
+    return false;
+  }
+
+  if(run_tests()) {
+    led_on(TEST_OK);
+  } else {
+    led_on(TEST_BAD);
+    return false;
+  }
+
+  if(load_main_program()) {
+    led_on(PROG_OK);
+  } else {
+    led_on(PROG_BAD);
+    return false;
+  }
+  
+  return true;
 }
 
 void loop (void) {
@@ -81,61 +243,21 @@ void loop (void) {
       break;
   }
   delay(1000);
-  
-  led_on(ISP_A);
-  set_prescaler(0x1);
-  target_poweron();
 
-  uint16_t signature;
-  image_t *targetimage;
-        
-  if (! (signature = readSignature()))	// Figure out what kind of CPU
-    error("Signature fail");
-  
-  if (! (targetimage = findImage(signature)))	// look for an image
-    error("Image fail");
-  
-  eraseChip();
-
-  if (! programFuses(targetimage->image_progfuses)) 	// get fuses ready to program
-    error("Programming Fuses fail");
-    
-  
-  if (! verifyFuses(targetimage->image_progfuses, targetimage->fusemask) )
-    error("Failed to verify fuses");
-
-  set_prescaler(0x0);
-
-  end_pmode();
-  led_on(TEST_A);
-  start_pmode();
-
-  const unsigned char *imagedata = targetimage->image_data;  
-  uint16_t pageaddr = 0;
-  uint8_t pagesize = pgm_read_byte(&targetimage->image_pagesize);
-  uint16_t chipsize = pgm_read_word(&targetimage->chipsize);
-  
-  programImage(imagedata, pagesize, chipsize);
-  
-  end_pmode();
-  led_on(PROG_A);
-  start_pmode();
-  
-  Serial.println("\nVerifing flash...");
-  if (! verifyImage(targetimage->image_data, chipsize) ) {
-    error("Failed to verify chip");
+  if(program_and_test()) {
+    Serial.println("PASS");
   } else {
-    Serial.println("\tFlash verified correctly!");
+    Serial.println("FAIL");
   }
-
+  delay(1000);
   while(digitalRead(PIN_BATT_POS));
  
   target_poweroff();			/* turn power off */
-  leds_off(ISP_A);
-  delay(1000);
+  leds_off(ISP_OK);
 }
 
 void error(char *string) { 
+  slow_down(false);
   Serial.println(string); 
 }
 
@@ -170,8 +292,8 @@ void end_pmode () {
   pinMode(MOSI, INPUT);
   digitalWrite(SCK, 0);
   pinMode(SCK, INPUT);
-  digitalWrite(RESET, 0);
-  pinMode(RESET, INPUT);
+  digitalWrite(RESET, HIGH);
+  //pinMode(RESET, INPUT);
   pmode = 0;
 }
 

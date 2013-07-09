@@ -50,7 +50,7 @@ void led_on(int pin1, int pin2, int pinoff);
 void leds_off(int pin1, int pin2, int pin3);
 
 uint16_t spi_transaction (uint8_t a, uint8_t b, uint8_t c, uint8_t d);
-image_t *findImage (uint16_t signature);
+image_t *findImage (char *name);
 
 
 uint16_t readSignature (void);

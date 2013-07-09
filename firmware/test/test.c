@@ -14,6 +14,9 @@ static void ioinit(void) {
 	COLUMN_DDR = 0xff;
 	DDRD |= PORTD_ROWS;
 	DDRA |= PORTA_ROWS;
+//	PORTB = 0x255;
+//	PORTD |= PORTD_ROWS;
+//	PORTA |= PORTA_ROWS;
 
 	sei();
 }
@@ -47,16 +50,16 @@ void main(void) __attribute__((noreturn));
 void main(void) {
 	ioinit();
 
-	int idx = num_pins - 1;
+	int idx = 6;
 	while(1) {
 		// Wait for rising edge on IR PIN
-		while(!(PORTD & _BV(IR_PIN)));
+		while(!(PIND & _BV(IR_PIN)));
 
-		*out_pins[idx].port &= out_pins[idx].pin;
+		*out_pins[idx].port &= ~out_pins[idx].pin;
 		idx = (idx + 1) % num_pins;
 		*out_pins[idx].port |= out_pins[idx].pin;
 
 		// Wait for falling edge on IR PIN
-		while(PORTD & _BV(IR_PIN));
+		while(PIND & _BV(IR_PIN));
 	}
 }
