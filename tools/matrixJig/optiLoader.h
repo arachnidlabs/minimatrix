@@ -29,8 +29,11 @@ typedef struct image {
     byte image_progfuses[5];	       /* fuses to set during programming */
     byte fusemask[4];
     uint16_t chipsize;
+    uint16_t eepromsize;
     byte image_pagesize;	       /* page size for flash programming */
+    byte eeprom_pagesize;
     const unsigned char *image_data;	               /* binary image data */
+    const unsigned char *eeprom_data;
 } image_t;
 
 typedef struct alias {
@@ -64,5 +67,7 @@ byte hexton (byte h);
 byte *readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page);
 boolean verifyFuses (const byte *fuses, const byte *fusemask);
 void error(char *string);
+boolean programEEPROM(const unsigned char *imagedata, int pagesize, int imagesize);
+boolean verifyEEPROM(const unsigned char *imagedata, int imagesize);
 
 #endif

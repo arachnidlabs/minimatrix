@@ -203,6 +203,18 @@ boolean load_main_program() {
   start_pmode();
   if(!do_program(mainimage))
     return false;
+    
+  const unsigned char *eepromdata = (const unsigned char*)pgm_read_word(&mainimage->eeprom_data);
+  uint8_t pagesize = pgm_read_byte(&mainimage->eeprom_pagesize);
+  uint16_t eepromsize = pgm_read_word(&mainimage->eepromsize);
+  Serial.println("Programming EEPROM...");
+  if(!programEEPROM(eepromdata, pagesize, eepromsize))
+    return false;
+    
+  Serial.println("Verifying EEPROM...");
+  if(!verifyEEPROM(eepromdata, eepromsize))
+    return false;
+    
   end_pmode();
   
   return true;

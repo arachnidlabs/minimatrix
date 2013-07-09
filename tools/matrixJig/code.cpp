@@ -259,6 +259,29 @@ boolean verifyImage (const unsigned char *image, int imagesize)  {
   return true;
 }
 
+boolean programEEPROM(const unsigned char *imagedata, int pagesize, int imagesize) {
+  for(int idx = 0; idx < imagesize; idx += pagesize) {
+    for(int i = 0; (i < pagesize) && (idx + i < imagesize); i++) {
+      spi_transaction(0xC1, 0x00, i, pgm_read_byte(&imagedata[idx + i]));
+    }
+    spi_transaction(0xC2, idx >> 8, idx & 0xFC, 0x00);
+    busyWait();
+  }
+  return true;
+}
+
+boolean verifyEEPROM(const unsigned char *imagedata, int imagesize) {
+  for(int idx = 0; idx < imagesize; idx++) {
+    byte b = pgm_read_byte(&imagedata[idx]);
+    if(b != spi_transaction(0xA0, idx >> 8, idx & 0xFF, 0x00) & 0xFF) {
+        Serial.print("EEPROM verification error at address 0x"); Serial.print(idx, HEX);
+        Serial.print(" Should be 0x"); Serial.print(b, HEX); Serial.print(" not 0x");
+        Serial.println((spi_transaction(0xA0, idx >> 8, idx & 0xFF, 0x00) & 0xFF), HEX);
+        return false;      
+    }
+  }
+  return true;
+}
 
 // Send the erase command, then busy wait until the chip is erased
 
