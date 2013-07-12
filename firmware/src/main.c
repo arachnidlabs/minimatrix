@@ -110,12 +110,15 @@ eedata_t stored_config EEMEM = {
 };
 
 static config_t config;
-static uint8_t display[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+static uint8_t display_1[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+static uint8_t display_2[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+static uint8_t *display = display_1;
+static uint8_t *buffer = display_2;
 static uint8_t keypresses = 0;
 static uint8_t mode_id = 0;
 static volatile uint8_t state = STATE_NORMAL;
 static uint8_t config_address = 0; // Address into config buffer for IR writes
-static uint8_t display_address = 0; // Address into display buffer for IR writes
+static uint8_t buffer_address = 0; // Address into back buffer for IR writes
 
 const char row_pins[] PROGMEM = {
 	_BV(PD6),
@@ -201,11 +204,15 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 			config_address++;
 			break;
 		case EXT_COMMAND_DISP_BEGIN_WRITE:
-			display_address = 0;
+			// Swap buffer and display, and set buffer pointer to 0
+			buffer_address = 0;
+			uint8_t *swap = display;
+			display = buffer;
+			buffer = swap;
 			// Deliberate fallthrough
 		case EXT_COMMAND_DISP_WRITE:
-			display[display_address & 0x7] = message->command & 0xFF;
-			display_address++;
+			buffer[buffer_address & 0x7] = message->command & 0xFF;
+			buffer_address++;
 			break;
 		case EXT_COMMAND_SET_STATE:
 			state = message->command & 0xFF;
