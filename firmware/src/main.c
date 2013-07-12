@@ -197,7 +197,7 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 			config_address = message->command & 0xFF;
 			break;
 		case EXT_COMMAND_DATA_WRITE:
-			eeprom_update_byte((uint8_t *)(&config + config_address), message->command & 0xFF);
+			eeprom_update_byte(config_address + (uint8_t *)&stored_config, message->command & 0xFF);
 			config_address++;
 			break;
 		case EXT_COMMAND_DISP_BEGIN_WRITE:
