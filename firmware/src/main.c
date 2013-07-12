@@ -216,7 +216,7 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 
 ISR(TIMER1_COMPA_vect) {
 	static ir_message_t current_message;
-	static ir_message_t previous_message;
+	static int8_t previous_toggle;
 	static uint8_t ir_bit_counter = 0;
 	static uint8_t last_ir_level = _BV(IR_PIN);
 	static uint16_t ir_counter = 127;
@@ -233,15 +233,16 @@ ISR(TIMER1_COMPA_vect) {
 		ir_counter++;
 
 		if(ir_counter >= 2000) {
+			previous_toggle = -1;
 			if(ir_level == 0 && pressed == 0) {
 				// Button press
 				current_message.command = COMMAND_STANDBY;
 				handle_message(&current_message, 0);
-				ir_counter = 0;
 				pressed = 1;
 			} else if(ir_level != 0 && state == STATE_SLEEPY) {
 				state = STATE_SLEEPING;
 			}
+			ir_counter = 0;
 		}
 
 		if(ir_bit_counter > 0 && ir_counter >= 127) {
@@ -260,7 +261,7 @@ ISR(TIMER1_COMPA_vect) {
 			ir_counter = 0;
 			
 			if(ir_bit_counter == IR_MESSAGE_LENGTH) {
-				uint8_t is_repeat = previous_message.data == current_message.data;
+				uint8_t is_repeat = previous_toggle == current_message.toggle;
 				// Only bother decoding the message if it's not a repeat
 				// or the repeat countdown has expired.
 				if((repeat_countdown == 0) || !is_repeat) {
@@ -275,7 +276,7 @@ ISR(TIMER1_COMPA_vect) {
 				ir_counter = 127;
 				
 				// Store the previous toggle value
-				previous_message.data = current_message.data;
+				previous_toggle = current_message.toggle;
 			}
 		} else {
 			// This transition is between bits, ignore it
