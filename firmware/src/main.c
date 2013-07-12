@@ -267,7 +267,7 @@ ISR(TIMER1_COMPA_vect) {
 					handle_message(&current_message, is_repeat);
 
 					// Set a delay until next allowable repeat - longer for a first repeat
-					repeat_countdown = is_repeat?1000:3000;
+					repeat_countdown = is_repeat?250:3000;
 				}
 				
 				// Reset the bit clock and counter
@@ -449,10 +449,13 @@ void edit_marquee(void) {
 
 void edit(void) {
 	if(config.flags & IS_ANIMATION) {
-		state = STATE_MENU;
-	} else {
-		edit_marquee();
+		config.flags = IS_MARQUEE;
+		config.mode.marquee.delay = 10;
+		config.mode.marquee.spacing = 1;
+		eeprom_update_block(&config, &stored_config.config, sizeof(config));
+		eeprom_update_byte(&stored_config.data[0], '\0');
 	}
+	edit_marquee();
 }
 
 void play(void) {
