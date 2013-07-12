@@ -11,6 +11,7 @@
 
 #include "glcdfont.h"
 #include "glyphs.h"
+#include "hardware.h"
 
 FUSES = {
 	// Internal 8mhz oscillator; short startup; enable ISP programming.
@@ -18,11 +19,8 @@ FUSES = {
 	.high = FUSE_SPIEN,
 };
 
-#define PORTD_ROWS (_BV(PD6) | _BV(PD5) | _BV(PD4) | _BV(PD3) | _BV(PD1) | _BV(PD0))
-#define PORTA_ROWS (_BV(PA1) | _BV(PA0))
 #define PWM_ON() (TCCR0B |= _BV(CS01) | _BV(CS00), DDRD |= PORTD_ROWS, DDRA |= PORTA_ROWS)
 #define ENABLE_ROW(row) if(row < 6) PORTD &= ~pgm_read_byte(&row_pins[row]); else PORTA &= ~pgm_read_byte(&row_pins[row])
-#define IR_PIN PD2
 
 #define MAX_DATA_LENGTH 248 // bytes
 #define IR_MESSAGE_LENGTH 14 // bits
@@ -41,7 +39,7 @@ FUSES = {
 #define EXT_COMMAND_MASK 0x0700
 #define EXT_COMMAND_DATA_ADDR 0x0700
 #define EXT_COMMAND_DATA_WRITE 0x0600
-#define EXT_COMMAND_DISP_ADDR 0x0500
+#define EXT_COMMAND_DISP_BEGIN_WRITE 0x0500
 #define EXT_COMMAND_DISP_WRITE 0x0400
 #define EXT_COMMAND_SET_STATE 0x0300
 
@@ -138,7 +136,7 @@ inline static void enter_sleep(void) {
 ISR(INT0_vect) { }
 
 inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
-	if(message->command == COMMAND_STANDBY && !is_repeat) {
+	if((message->command == COMMAND_STANDBY) && !is_repeat) {
 		if(state & (STATE_SLEEPING | STATE_SLEEPY)) {
 			state = STATE_NORMAL;
 			PWM_ON();
@@ -153,7 +151,7 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 			PORTD &= ~PORTD_ROWS;
 			DDRA &= ~PORTA_ROWS;
 			PORTA &= ~PORTA_ROWS;
-			PORTB = 0;
+			COLUMN_PORT = 0;
 		}
 		return;
 	}
@@ -185,6 +183,8 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 			break;
 		}
 	} else {
+		if(is_repeat) return;
+
 		// Handle extended commands
 		switch(message->command & EXT_COMMAND_MASK) {
 		case EXT_COMMAND_DATA_ADDR:
@@ -194,12 +194,12 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 			eeprom_update_byte((uint8_t *)(&config + config_address), message->command & 0xFF);
 			config_address++;
 			break;
-		case EXT_COMMAND_DISP_ADDR:
-			display_address = message->command & 0x7;
-			break;
+		case EXT_COMMAND_DISP_BEGIN_WRITE:
+			display_address = 0;
+			// Deliberate fallthrough
 		case EXT_COMMAND_DISP_WRITE:
-			display[display_address] = message->command & 0xFF;
-			display_address = (display_address + 1) & 0x07;
+			display[display_address & 0x7] = message->command & 0xFF;
+			display_address++;
 			break;
 		case EXT_COMMAND_SET_STATE:
 			state = message->command & 0xFF;
@@ -210,10 +210,10 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 
 ISR(TIMER1_COMPA_vect) {
 	static ir_message_t current_message;
+	static ir_message_t previous_message;
 	static uint8_t ir_bit_counter = 0;
 	static uint8_t last_ir_level = _BV(IR_PIN);
 	static uint16_t ir_counter = 127;
-	static int8_t previous_toggle = -1;
 	static int16_t repeat_countdown = 0;
 	static uint8_t pressed = 0;
 	
@@ -254,10 +254,10 @@ ISR(TIMER1_COMPA_vect) {
 			ir_counter = 0;
 			
 			if(ir_bit_counter == IR_MESSAGE_LENGTH) {
-				uint8_t is_repeat = previous_toggle == current_message.toggle;
+				uint8_t is_repeat = previous_message.data == current_message.data;
 				// Only bother decoding the message if it's not a repeat
 				// or the repeat countdown has expired.
-				if(repeat_countdown == 0 || !is_repeat) {
+				if((repeat_countdown == 0) || !is_repeat) {
 					handle_message(&current_message, is_repeat);
 
 					// Set a delay until next allowable repeat - longer for a first repeat
@@ -269,7 +269,7 @@ ISR(TIMER1_COMPA_vect) {
 				ir_counter = 127;
 				
 				// Store the previous toggle value
-				previous_toggle = current_message.toggle;
+				previous_message.data = current_message.data;
 			}
 		} else {
 			// This transition is between bits, ignore it
@@ -288,7 +288,7 @@ ISR(TIMER0_COMPA_vect) {
 
 	// Set the column data
 	row = (row + 1) & 0x7;
-	PORTB = display[row];
+	COLUMN_PORT = display[row];
 	
 	// Turn on the new row
 	ENABLE_ROW(row);
@@ -305,7 +305,7 @@ static void ioinit(void) {
 	TIMSK |= _BV(OCIE1A) | _BV(OCIE0A); // Interrupt on counter reset
 
 	// PORTB is all output for columns
-	DDRB = 0xff;
+	COLUMN_DDR = 0xff;
 
 	// Enable pullup on IR receiver pin
 	PORTD |= _BV(IR_PIN);
