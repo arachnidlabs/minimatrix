@@ -28,27 +28,31 @@ FUSES = {
 #define IS_MARQUEE 0
 #define IS_ANIMATION 1
 
-#define COMMAND_NONE 	0xFFFF
-#define COMMAND_STANDBY 0x000C
-#define COMMAND_UP		0x0020
-#define COMMAND_DOWN	0x0021
-#define COMMAND_LEFT	0x0011
-#define COMMAND_RIGHT	0x0010
-#define COMMAND_MENU	0x000B
+#define COMMAND_NONE 		0xFFFF
+#define COMMAND_STANDBY 	0x04DF
+#define COMMAND_UP			0x04D3
+#define COMMAND_DOWN		0x04D2
+#define COMMAND_LEFT		0x04C1
+#define COMMAND_RIGHT		0x04C2
+#define COMMAND_MENU		0x04DC
+#define COMMAND_ENTER		0x04D1
+#define COMMAND_PLAY_PAUSE 	0x04DD
 
-#define EXT_COMMAND_MASK 0x0700
-#define EXT_COMMAND_DATA_ADDR 0x0700
-#define EXT_COMMAND_DATA_WRITE 0x0600
-#define EXT_COMMAND_DISP_BEGIN_WRITE 0x0500
-#define EXT_COMMAND_DISP_WRITE 0x0400
-#define EXT_COMMAND_SET_STATE 0x0300
+#define EXT_COMMAND_MASK 				0x0700
+#define EXT_COMMAND_DATA_ADDR 			0x0700
+#define EXT_COMMAND_DATA_WRITE 			0x0600
+#define EXT_COMMAND_DISP_BEGIN_WRITE	0x0500
+#define EXT_COMMAND_DISP_WRITE 			0x0400
+#define EXT_COMMAND_SET_STATE 			0x0300
 
-#define KEY_STANDBY 0x01
-#define KEY_UP 		0x02
-#define KEY_DOWN 	0x04
-#define KEY_LEFT 	0x08
-#define KEY_RIGHT 	0x10
-#define KEY_MENU	0x20
+#define KEY_STANDBY 	0x01
+#define KEY_UP 			0x02
+#define KEY_DOWN 		0x04
+#define KEY_LEFT 		0x08
+#define KEY_RIGHT 		0x10
+#define KEY_MENU		0x20
+#define KEY_ENTER		0x40
+#define KEY_PLAY_PAUSE	0x80
 
 #define STATE_NORMAL 0x01
 #define STATE_MENU 0x02
@@ -173,13 +177,15 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 		case COMMAND_RIGHT:
 			keypresses |= KEY_RIGHT;
 			break;
+		case COMMAND_ENTER:
+			keypresses |= KEY_ENTER;
+			break;
+		case COMMAND_PLAY_PAUSE:
+			keypresses |= KEY_PLAY_PAUSE;
+			break;
 		case COMMAND_MENU:
 			if(is_repeat) break;
-			if(state & (STATE_NORMAL | STATE_SLAVE)) {
-				state = STATE_MENU;
-			} else {
-				state = STATE_NORMAL;
-			}
+			state = STATE_MENU;
 			break;
 		}
 	} else {
@@ -501,6 +507,9 @@ void menu(void) {
 					_delay_ms(50);
 				}
 			}
+		} else if(keypresses & KEY_ENTER) {
+			keypresses &= ~KEY_ENTER;
+			state = STATE_NORMAL;
 		}
 	}
 }
