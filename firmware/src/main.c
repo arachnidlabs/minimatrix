@@ -433,11 +433,13 @@ void edit_marquee(void) {
 			}
 			keypresses &= ~KEY_RIGHT;
 		} else if(keypresses & KEY_UP) {
-			current++;
+			if(current < 255)
+				current++;
 			draw_character(current);
 			keypresses &= ~KEY_UP;
 		} else if(keypresses & KEY_DOWN) {
-			current--;
+			if(current > 0)
+				current--;
 			draw_character(current);
 			keypresses &= ~KEY_DOWN;
 		} else {
