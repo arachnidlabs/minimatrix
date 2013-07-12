@@ -352,12 +352,13 @@ void animate(void) {
 	}
 }
 
+uint8_t *marquee_msgptr = stored_config.data;
+
 void marquee(void) {
-	uint8_t *msgptr = stored_config.data;
 	while(state == STATE_NORMAL) {
-		uint8_t current = eeprom_read_byte(msgptr++);
+		uint8_t current = eeprom_read_byte(marquee_msgptr++);
 		if(current == '\0') { 
-			msgptr = stored_config.data;
+			marquee_msgptr = stored_config.data;
 			continue;
 		}
 
@@ -391,6 +392,8 @@ void edit_marquee(void) {
 		current = eeprom_read_byte((uint8_t*)&stored_config.data[idx]);
 	}
 	
+	marquee_msgptr = stored_config.data;
+
 	display[0] = 0;
 	display[1] = 0;
 	display[7] = 0;
