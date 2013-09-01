@@ -226,8 +226,8 @@ ISR(TIMER1_COMPA_vect) {
 	if(repeat_countdown > 0)
 		repeat_countdown--;
 
-	uint8_t ir_level = PIND & _BV(IR_PIN);
-	
+	const uint8_t ir_level = PIND & _BV(IR_PIN);
+
 	if(ir_level == last_ir_level) {
 		// Increment the time interval since last bit flip
 		ir_counter++;
@@ -260,7 +260,7 @@ ISR(TIMER1_COMPA_vect) {
 			ir_counter = 0;
 			
 			if(ir_bit_counter == IR_MESSAGE_LENGTH) {
-				uint8_t is_repeat = previous_message.data == current_message.data;
+				const uint8_t is_repeat = previous_message.data == current_message.data;
 				// Only bother decoding the message if it's not a repeat
 				// or the repeat countdown has expired.
 				if((repeat_countdown == 0) || !is_repeat) {
@@ -280,7 +280,7 @@ ISR(TIMER1_COMPA_vect) {
 		} else {
 			// This transition is between bits, ignore it
 		}
-		
+
 		last_ir_level = ir_level;
 	}
 }
@@ -304,7 +304,7 @@ static void ioinit(void) {
 	// Enable timer 0: display refresh
 	OCR0A = 250; // 8 megahertz / 64 / 125 = 500Hz
 	TCCR0B = _BV(WGM01); // CTC(OCR0A), /64 prescaler
-	
+
 	OCR1A = 250; // 8 megahertz / 8 / 250 = 4KHz
 	TCCR1B = _BV(WGM12) | _BV(CS11); // CTC(OCR1A), /8 prescaler
 
@@ -324,47 +324,47 @@ static uint8_t read_font_column(uint8_t character, uint8_t column) {
 }
 
 static void shift_right(void) {
-	for(int i = 7; i > 0; i--)
+	for(uint8_t i = 7; i > 0; i--)
 		display[i] = display[i - 1];
 }
 
 static void shift_left(void) {
-	for(int i = 0; i < 7; i++)
+	for(uint8_t i = 0; i < 7; i++)
 		display[i] = display[i + 1];
 }
 
 static void draw_character(char ch) {
-	for(int i = 0; i < 5; i++)
+	for(uint8_t i = 0; i < 5; i++)
 		display[i + 2] = read_font_column(ch, i);
 }
 
-void animate(void) {
+static void animate(void) {
 	while(1) {
-		uint8_t *dataptr = stored_config.data;
-		for(int i = 0; i < config.mode.animate.framecount; i++) {
+		const uint8_t *dataptr = stored_config.data;
+		for(uint8_t i = 0; i < config.mode.animate.framecount; i++) {
 			if(state != STATE_NORMAL) return;
-			for(int j = 0; j < 8; j++) {
+			for(uint8_t j = 0; j < 8; j++) {
 				display[j] = eeprom_read_byte(dataptr++);
 			}
-			for(int j = 0; j < config.mode.animate.delay; j++)
+			for(uint8_t j = 0; j < config.mode.animate.delay; j++)
 				_delay_ms(10);
 		}
 	}
 }
 
-uint8_t *marquee_msgptr = stored_config.data;
+static uint8_t *marquee_msgptr = stored_config.data;
 
-void marquee(void) {
+static void marquee(void) {
 	while(state == STATE_NORMAL) {
-		uint8_t current = eeprom_read_byte(marquee_msgptr++);
+		const uint8_t current = eeprom_read_byte(marquee_msgptr++);
 		if(current == '\0') { 
 			marquee_msgptr = stored_config.data;
 			continue;
 		}
 
-		for(int j = 0; j < 5 + config.mode.marquee.spacing; j++) {
+		for(uint8_t j = 0; j < 5 + config.mode.marquee.spacing; j++) {
 			shift_left();
-			
+
 			if(j >= 5) {
 				// Empty columns at the end
 				display[7] = 0;
@@ -373,31 +373,31 @@ void marquee(void) {
 				display[7] = read_font_column(current, j);
 			}
 
-			for(int k = 0; k < config.mode.marquee.delay && !(keypresses & KEY_MENU); k++) {
+			for(uint8_t k = 0; k < config.mode.marquee.delay && !(keypresses & KEY_MENU); k++) {
 				_delay_ms(10);
 			}
 		}
 	}
 }
 
-void edit_marquee(void) {
+static void edit_marquee(void) {
 	uint8_t idx = 0;
 	char current;
 
 	void write_dirty(void) {
 		eeprom_update_byte((uint8_t*)&stored_config.data[idx], current);
 	}
-	
+
 	void read_current(void) {
 		current = eeprom_read_byte((uint8_t*)&stored_config.data[idx]);
 	}
-	
+
 	marquee_msgptr = stored_config.data;
 
 	display[0] = 0;
 	display[1] = 0;
 	display[7] = 0;
-	
+
 	// Load and show the first character
 	read_current();
 	draw_character(current);
@@ -408,7 +408,7 @@ void edit_marquee(void) {
 				write_dirty();
 				idx--;
 				read_current();
-				for(int i = 0; i < 8; i++) {
+				for(uint8_t i = 0; i < 8; i++) {
 					shift_right();
 					if(i > 0 && i < 6) {
 						display[0] = read_font_column(current, 5 - i);
@@ -424,7 +424,7 @@ void edit_marquee(void) {
 				write_dirty();
 				idx++;
 				read_current();
-				for(int i = 0; i < 8; i++) {
+				for(uint8_t i = 0; i < 8; i++) {
 					shift_left();
 					if(i > 1 && i < 7) {
 						display[7] = read_font_column(current, i - 2);
@@ -452,7 +452,7 @@ void edit_marquee(void) {
 	write_dirty();
 }
 
-void edit(void) {
+static void edit(void) {
 	if(config.flags & IS_ANIMATION) {
 		config.flags = IS_MARQUEE;
 		config.mode.marquee.delay = 10;
@@ -463,7 +463,7 @@ void edit(void) {
 	edit_marquee();
 }
 
-void play(void) {
+static void play(void) {
 	if(config.flags & IS_ANIMATION) {
 		animate();
 	} else {
@@ -471,7 +471,7 @@ void play(void) {
 	}
 }
 
-mode_t modes[] = {
+static const mode_t modes[] = {
 	{play, 0},
 	{edit, 1},
 	{NULL, 0},
@@ -488,15 +488,15 @@ static void draw_glyph(uint8_t glyph_id) {
 		display[i] = read_glyph_column(glyph_id, i);
 }
 
-void menu(void) {
+static void menu(void) {
 	draw_glyph(modes[mode_id].glyph_id);
 	while(state == STATE_MENU) {
 		if(keypresses & KEY_LEFT) {
 			keypresses &= ~KEY_LEFT;
 			if(mode_id > 0) {
 				mode_id--;
-				
-				uint8_t glyph_id = modes[mode_id].glyph_id;
+
+				const uint8_t glyph_id = modes[mode_id].glyph_id;
 				for(uint8_t i = 0; i < 8; i++) {
 					shift_right();
 					display[0] = read_glyph_column(glyph_id, 7 - i);
@@ -508,7 +508,7 @@ void menu(void) {
 			if(modes[mode_id + 1].run != NULL) {
 				mode_id++;
 
-				uint8_t glyph_id = modes[mode_id].glyph_id;
+				const uint8_t glyph_id = modes[mode_id].glyph_id;
 				for(uint8_t i = 0; i < 8; i++) {
 					shift_left();
 					display[7] = read_glyph_column(glyph_id, i);
