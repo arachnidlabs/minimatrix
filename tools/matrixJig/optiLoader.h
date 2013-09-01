@@ -17,7 +17,7 @@
 // You may want to tweak these based on whether your chip is
 // using an internal low-speed crystal
 #define CLOCKSPEED_FUSES   SPI_CLOCK_DIV128 
-#define CLOCKSPEED_FLASH   SPI_CLOCK_DIV8
+#define CLOCKSPEED_FLASH   SPI_CLOCK_DIV16
 
 #define LED_ERR 8
 #define LED_PROGMODE A0
