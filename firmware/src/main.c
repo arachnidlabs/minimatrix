@@ -227,7 +227,7 @@ ISR(TIMER1_COMPA_vect) {
 	static uint8_t ir_bit_counter = 0;
 	static uint8_t last_ir_level = _BV(IR_PIN);
 	static uint16_t ir_counter = 127;
-	static int16_t repeat_countdown = 0;
+	static uint16_t repeat_countdown = 0;
 	static uint8_t pressed = 0;
 	
 	if(repeat_countdown > 0)
