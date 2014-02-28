@@ -384,17 +384,18 @@ static void marquee(void) {
 	}
 }
 
+static void write_dirty(uint8_t idx, uint8_t current) {
+	eeprom_update_byte((uint8_t*)&stored_config.data[idx], current);
+}
+
+uint8_t read_current(uint8_t idx) {
+	return eeprom_read_byte((uint8_t*)&stored_config.data[idx]);
+}
+
 static void edit_marquee(void) {
 	uint8_t idx = 0;
 	char current;
 
-	void write_dirty(void) {
-		eeprom_update_byte((uint8_t*)&stored_config.data[idx], current);
-	}
-
-	void read_current(void) {
-		current = eeprom_read_byte((uint8_t*)&stored_config.data[idx]);
-	}
 
 	marquee_msgptr = stored_config.data;
 
@@ -403,15 +404,15 @@ static void edit_marquee(void) {
 	display[7] = 0;
 
 	// Load and show the first character
-	read_current();
+	current = read_current(idx);
 	draw_character(current);
 
 	while(state == STATE_NORMAL) {
 		if(keypresses & KEY_LEFT) {
 			if(idx > 0) {
-				write_dirty();
+				write_dirty(idx, current);
 				idx--;
-				read_current();
+				current = read_current(idx);
 				for(uint8_t i = 0; i < 8; i++) {
 					shift_right();
 					if(i > 0 && i < 6) {
@@ -425,9 +426,9 @@ static void edit_marquee(void) {
 			keypresses &= ~KEY_LEFT;
 		} else if(keypresses & KEY_RIGHT) {
 			if(idx < MAX_DATA_LENGTH && current != '\0') {
-				write_dirty();
+				write_dirty(idx, current);
 				idx++;
-				read_current();
+				current = read_current(idx);
 				for(uint8_t i = 0; i < 8; i++) {
 					shift_left();
 					if(i > 1 && i < 7) {
@@ -453,7 +454,7 @@ static void edit_marquee(void) {
 			continue;
 		}
 	}
-	write_dirty();
+	write_dirty(idx, current);
 }
 
 static void edit(void) {
