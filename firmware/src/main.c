@@ -374,13 +374,8 @@ static void marquee(void) {
 		for(uint8_t j = 0; j < 5 + config.mode.marquee.spacing; j++) {
 			shift_left();
 
-			if(j >= 5) {
-				// Empty columns at the end
-				display[7] = 0;
-			} else {
-				// Display the next column of the current letter 
-				display[7] = read_font_column(current, j);
-			}
+			// Read column, making far right columns empty
+			display[7] = (j < 5) ? read_font_column(current, j) : 0;
 
 			for(uint8_t k = 0; k < config.mode.marquee.delay && !(keypresses & KEY_MENU); k++) {
 				_delay_ms(10);
