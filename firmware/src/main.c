@@ -227,7 +227,7 @@ ISR(TIMER1_COMPA_vect) {
 	static uint8_t ir_bit_counter = 0;
 	static uint8_t last_ir_level = _BV(IR_PIN);
 	static uint16_t ir_counter = 127;
-	static int16_t repeat_countdown = 0;
+	static uint16_t repeat_countdown = 0;
 	static uint8_t pressed = 0;
 	
 	if(repeat_countdown > 0)
@@ -374,13 +374,8 @@ static void marquee(void) {
 		for(uint8_t j = 0; j < 5 + config.mode.marquee.spacing; j++) {
 			shift_left();
 
-			if(j >= 5) {
-				// Empty columns at the end
-				display[7] = 0;
-			} else {
-				// Display the next column of the current letter 
-				display[7] = read_font_column(current, j);
-			}
+			// Read column, making far right columns empty
+			display[7] = (j < 5) ? read_font_column(current, j) : 0;
 
 			for(uint8_t k = 0; k < config.mode.marquee.delay && !(keypresses & KEY_MENU); k++) {
 				_delay_ms(10);
@@ -389,17 +384,18 @@ static void marquee(void) {
 	}
 }
 
+static void write_dirty(uint8_t idx, uint8_t current) {
+	eeprom_update_byte((uint8_t*)&stored_config.data[idx], current);
+}
+
+uint8_t read_current(uint8_t idx) {
+	return eeprom_read_byte((uint8_t*)&stored_config.data[idx]);
+}
+
 static void edit_marquee(void) {
 	uint8_t idx = 0;
 	char current;
 
-	void write_dirty(void) {
-		eeprom_update_byte((uint8_t*)&stored_config.data[idx], current);
-	}
-
-	void read_current(void) {
-		current = eeprom_read_byte((uint8_t*)&stored_config.data[idx]);
-	}
 
 	marquee_msgptr = stored_config.data;
 
@@ -408,15 +404,15 @@ static void edit_marquee(void) {
 	display[7] = 0;
 
 	// Load and show the first character
-	read_current();
+	current = read_current(idx);
 	draw_character(current);
 
 	while(state == STATE_NORMAL) {
 		if(keypresses & KEY_LEFT) {
 			if(idx > 0) {
-				write_dirty();
+				write_dirty(idx, current);
 				idx--;
-				read_current();
+				current = read_current(idx);
 				for(uint8_t i = 0; i < 8; i++) {
 					shift_right();
 					if(i > 0 && i < 6) {
@@ -430,9 +426,9 @@ static void edit_marquee(void) {
 			keypresses &= ~KEY_LEFT;
 		} else if(keypresses & KEY_RIGHT) {
 			if(idx < MAX_DATA_LENGTH && current != '\0') {
-				write_dirty();
+				write_dirty(idx, current);
 				idx++;
-				read_current();
+				current = read_current(idx);
 				for(uint8_t i = 0; i < 8; i++) {
 					shift_left();
 					if(i > 1 && i < 7) {
@@ -458,7 +454,7 @@ static void edit_marquee(void) {
 			continue;
 		}
 	}
-	write_dirty();
+	write_dirty(idx, current);
 }
 
 static void edit(void) {
