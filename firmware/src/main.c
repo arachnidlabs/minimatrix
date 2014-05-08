@@ -44,6 +44,7 @@ FUSES = {
 #define EXT_COMMAND_DISP_BEGIN_WRITE	0x0500
 #define EXT_COMMAND_DISP_WRITE 			0x0400
 #define EXT_COMMAND_SET_STATE 			0x0300
+#define EXT_COMMAND_RELOAD_CONFIG	0x200
 
 #define KEY_STANDBY 	0x01
 #define KEY_UP 			0x02
@@ -216,6 +217,9 @@ inline static void handle_message(ir_message_t *message, uint8_t is_repeat) {
 			break;
 		case EXT_COMMAND_SET_STATE:
 			state = message->command & 0xFF;
+			break;
+		case EXT_COMMAND_RELOAD_CONFIG:
+			eeprom_read_block(&config, &stored_config.config, sizeof(config_t));
 			break;
 		}
 	}
